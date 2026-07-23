@@ -1,0 +1,12 @@
+# dependencies (not needed to run this app)
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# local backups exported from the app
+pourover-backup-*.json

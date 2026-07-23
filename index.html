@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#6f4e37" />
+  <title>Bloom</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Bloom" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🌸 Bloom</h1>
+    <button id="menuBtn" class="icon-btn" title="Data &amp; backup" aria-label="Menu">⋮</button>
+  </header>
+
+  <!-- ===== Views ===== -->
+  <main id="app">
+
+    <!-- Brews list -->
+    <section id="view-brews" class="view active">
+      <div class="view-head">
+        <h2>Brews</h2>
+        <button class="primary" data-action="new-brew">+ New brew</button>
+      </div>
+      <div id="brewList" class="card-list"></div>
+    </section>
+
+    <!-- Beans list -->
+    <section id="view-beans" class="view">
+      <div class="view-head">
+        <h2>Beans</h2>
+        <button class="primary" data-action="new-bean">+ New bean</button>
+      </div>
+      <div id="beanList" class="card-list"></div>
+    </section>
+
+    <!-- Stats -->
+    <section id="view-stats" class="view">
+      <div class="view-head"><h2>Statistics</h2></div>
+      <div id="statsBody"></div>
+    </section>
+  </main>
+
+  <!-- ===== Bottom nav ===== -->
+  <nav class="tabbar">
+    <button class="tab active" data-view="brews"><span>◉</span>Brews</button>
+    <button class="tab" data-view="beans"><span>◈</span>Beans</button>
+    <button class="tab" data-view="stats"><span>▤</span>Stats</button>
+  </nav>
+
+  <!-- ===== Modal (forms live here) ===== -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="modalTitle">Title</h3>
+        <button class="icon-btn" data-action="close-modal" aria-label="Close">✕</button>
+      </div>
+      <form id="modalForm" class="modal-body"></form>
+      <div class="modal-foot">
+        <button type="button" class="ghost" data-action="close-modal">Cancel</button>
+        <button type="button" class="danger" id="deleteBtn" hidden>Delete</button>
+        <button type="submit" form="modalForm" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Toast ===== -->
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
