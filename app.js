@@ -338,9 +338,17 @@ function renderStats() {
   const stockG = Math.round(active.reduce((s, b) => { const r = beanConsumption(b).remaining; return s + (r && r > 0 ? r : 0); }, 0));
   const priced = beans.filter((b) => b.price != null);
   const totalSpend = priced.reduce((s, b) => s + b.price, 0);
-  const massPriced = priced.reduce((s, b) => s + (b.mass || 0), 0);
-  const perGram = massPriced ? totalSpend / massPriced : null;
+  // avg per gram = money spent / total mass of beans purchased (bag content masses)
+  const massPurchased = priced.reduce((s, b) => s + (b.mass || 0), 0);
+  const perGram = massPurchased ? totalSpend / massPurchased : null;
   const perCup = brews.length ? totalSpend / brews.length : null;
+
+  // mass of beans consumed (sum of brew doses) grouped by year
+  const consumedByYear = (() => {
+    const m = new Map();
+    brews.forEach((x) => { const y = (x.date || '').slice(0, 4); if (y) m.set(y, (m.get(y) || 0) + (x.dose || 0)); });
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, value]) => ({ label, value: Math.round(value) }));
+  })();
 
   const beanScores = beans.map((b) => ({ label: beanLabel(b), avg: beanOverall(b) }))
     .filter((b) => b.avg != null).sort((a, b) => b.avg - a.avg).slice(0, 8);
@@ -368,7 +376,8 @@ function renderStats() {
 
     ${pieBlock('Process mix', beanProcessCounts)}
     ${pieBlock('Roaster mix', beanRoasterCounts)}
-    ${pieBlock('Varietal mix', beanVarietalCounts)}
+    ${beanVarietalCounts.length ? barBlock('Varietal mix (packs)', beanVarietalCounts.sort((a, b) => b.value - a.value)) : ''}
+    ${consumedByYear.length ? barBlock('Coffee consumed by year (g)', consumedByYear) : ''}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
@@ -471,7 +480,7 @@ function beanForm(rec = {}) {
       ${field('Price (¥ CNY)', textInput('price', rec.price, '0.00', 'number', 'step="0.01" inputmode="decimal"'))}
     </div>
     ${field('Mass left (g)', textInput('massLeft', c ? (c.remaining ?? '') : '', 'auto from brews', 'number'), 'Defaults to total − brews used. Type to correct it; clear to reset to auto.')}
-    ${field('Roast date', textInput('roastDate', rec.roastDate, 'optional'))}
+    ${field('Roast date', textInput('roastDate', rec.roastDate, '', 'date'))}
 
     <div class="section-label">Rating &amp; notes</div>
     ${field('Overall rating', ratingWidget(rec.rating || 0))}
