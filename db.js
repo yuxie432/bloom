@@ -86,6 +86,17 @@ export async function remove(store, id) {
   });
 }
 
+/** Wipe all beans, brews, and settings (a full reset). */
+export async function clearAll() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(STORES, 'readwrite');
+    STORES.forEach((s) => t.objectStore(s).clear());
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
 /* ---- Settings (editable lists + defaults, single record id='app') ---- */
 
 export const DEFAULT_SETTINGS = {

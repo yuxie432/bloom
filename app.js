@@ -3,8 +3,8 @@
  * ========================================================================= */
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
-  getSettings, saveSettings,
-} from './db.js';
+  getSettings, saveSettings, clearAll,
+} from './db.js?v=9';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -135,7 +135,13 @@ function beanLastBrew(id) {
 function beanConsumption(b) {
   const consumed = brews.filter((x) => x.beanId === b.id && x.dose).reduce((s, x) => s + x.dose, 0);
   const mass = b.mass != null ? +b.mass : null;
-  const remaining = mass != null ? Math.round((mass - consumed) * 10) / 10 : null;
+  let remaining;
+  if (b.massLeftSet != null && b.massLeftSet !== '') {
+    // manual override: value entered, re-based so later brews keep decrementing it
+    remaining = Math.round((+b.massLeftSet - (consumed - (b.massLeftSetAt || 0))) * 10) / 10;
+  } else {
+    remaining = mass != null ? Math.round((mass - consumed) * 10) / 10 : null;
+  }
   const finished = !!b.finished || (remaining != null && remaining <= 0);
   return { consumed: Math.round(consumed * 10) / 10, remaining, finished, mass };
 }
@@ -459,6 +465,7 @@ function beanForm(rec = {}) {
       ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number'))}
       ${field('Price (¥ CNY)', textInput('price', rec.price, '0.00', 'number'))}
     </div>
+    ${field('Mass left (g)', textInput('massLeft', c ? (c.remaining ?? '') : '', 'auto from brews', 'number'), 'Defaults to total − brews used. Type to correct it; clear to reset to auto.')}
     ${field('Roast date', textInput('roastDate', rec.roastDate, 'optional'))}
 
     <div class="section-label">Rating &amp; notes</div>
@@ -570,12 +577,22 @@ async function saveForm(e) {
 
   if (store === 'beans') {
     const varietals = $$('#vchips .chip').map((c) => c.dataset.vchip);
+    // manual "mass left" override: keep it only if it differs from the auto value
+    const consumedNow = editing.record?.id ? beanConsumption(editing.record).consumed : 0;
+    const newMass = num(fd.get('mass'));
+    const autoRem = newMass != null ? Math.round((newMass - consumedNow) * 10) / 10 : null;
+    const enteredLeft = num(fd.get('massLeft'));
+    let massLeftSet = null, massLeftSetAt = null;
+    if (enteredLeft != null && !(autoRem != null && Math.abs(enteredLeft - autoRem) < 0.05)) {
+      massLeftSet = enteredLeft; massLeftSetAt = consumedNow;
+    }
     Object.assign(rec, {
       roaster: fd.get('roaster') || '', originCountry: fd.get('originCountry') || '',
       originRegion: fd.get('originRegion')?.trim() || '', producer: fd.get('producer')?.trim() || '',
       lot: fd.get('lot')?.trim() || '', varietal: varietals,
       roastLevel: fd.get('roastLevel') || '', process: fd.get('process') || '',
-      mass: num(fd.get('mass')), price: num(fd.get('price')),
+      mass: newMass, price: num(fd.get('price')),
+      massLeftSet, massLeftSetAt,
       roastDate: fd.get('roastDate')?.trim() || '', flavour: fd.get('flavour')?.trim() || '',
       rating: num(fd.get('rating')) || null, finished: fd.get('finished') === 'on',
       notes: fd.get('notes')?.trim() || '',
@@ -631,6 +648,8 @@ function openMenu() {
         <span class="desc">Merge a backup or converted Notion file.</span></button>
       <button type="button" data-menu="sample">Load sample data
         <span class="desc">Add a couple of example records.</span></button>
+      <button type="button" data-menu="erase" class="menu-danger">Erase all data
+        <span class="desc">Delete every bean, brew &amp; setting on this device. Cannot be undone.</span></button>
     </div>`;
   $('#deleteBtn').hidden = true;
   $('#modalForm').onsubmit = (e) => e.preventDefault();
@@ -724,6 +743,17 @@ async function loadSample() {
   await put('brews', mk({}));
   await reload(); closeModal(); toast('Sample data loaded');
 }
+async function eraseAll() {
+  if (!confirm('Erase ALL data on this device — every bean, brew and setting?\n\nThis cannot be undone. (You can re-import a backup afterwards.)')) return;
+  if (!confirm('Are you absolutely sure? This wipes everything.')) return;
+  await clearAll();
+  settings = await getSettings();   // back to seeded defaults
+  await saveSettings(settings);
+  brewsPage = 0; beansPage = 0;
+  await reload();
+  closeModal();
+  toast('All data erased');
+}
 
 /* =========================================================================
  * NAV + WIRING
@@ -807,6 +837,7 @@ function wireEvents() {
     if (menu === 'export') return doExport();
     if (menu === 'import') return doImport();
     if (menu === 'sample') return loadSample();
+    if (menu === 'erase') return eraseAll();
 
     const rh = e.target.closest('.rating2 [data-val]');
     if (rh) { const v = +rh.dataset.val; const box = rh.closest('[data-rating]'); box.nextElementSibling.value = v; paintRating(box, v); }
@@ -821,6 +852,12 @@ async function init() {
   settings = await getSettings();
   await saveSettings(settings);
   await reload();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  // This build runs without a service worker so code is always fresh from the
+  // network. Proactively remove any previously-installed worker + its caches.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+    if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+  }
 }
 init();

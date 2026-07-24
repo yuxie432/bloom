@@ -1,33 +1,30 @@
-/* Service worker — makes the app installable and work offline.
- * Bump CACHE when you change any file so clients pick up the update. */
-const CACHE = 'pourover-v6';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './db.js',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-];
-
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
-});
+/* One-time RESET worker.
+ * Purpose: escape a stuck cache-first service worker that was serving stale code.
+ * When any browser with an old worker checks for an update, it fetches THIS file,
+ * which unregisters itself, deletes all caches, and reloads open windows with a
+ * cache-busting query so the freshest HTML/JS/CSS load from the network.
+ * The app no longer registers a service worker, so this runs once and stays gone. */
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch (_) {}
+    try { await self.registration.unregister(); } catch (_) {}
+    try {
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach((c) => {
+        try {
+          const u = new URL(c.url);
+          u.searchParams.set('fresh', Date.now().toString());
+          c.navigate(u.href);
+        } catch (_) {}
+      });
+    } catch (_) {}
+  })());
 });
 
-// Cache-first for our own assets; network fallback otherwise.
-self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then((hit) => hit || fetch(e.request).catch(() => hit))
-  );
-});
+// While this worker is briefly alive, never serve from cache — always go to network.
+self.addEventListener('fetch', () => {});

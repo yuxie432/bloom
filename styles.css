@@ -23,7 +23,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.4;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: calc(130px + env(safe-area-inset-bottom));
 }
 
 /* Header */
@@ -195,8 +195,8 @@ textarea { resize: vertical; min-height: 70px; }
 .msel-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 8px; margin-bottom: 6px; }
 
 /* Pagination */
-.pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 4px 4px; color: var(--muted); font-size: 13px; }
-.pager button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; font-size: 14px; font-weight: 600; color: var(--brand); cursor: pointer; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px 4px; margin-bottom: 24px; color: var(--muted); font-size: 13px; position: relative; z-index: 5; }
+.pager button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; font-size: 15px; font-weight: 600; color: var(--brand); cursor: pointer; }
 .pager button:disabled { opacity: .4; cursor: default; }
 
 /* Bean detail */
@@ -220,6 +220,10 @@ textarea { resize: vertical; min-height: 70px; }
 
 /* Back button in forms opened from a bean detail */
 .backbtn { background: transparent; border: 0; color: var(--brand); font-size: 15px; font-weight: 650; cursor: pointer; padding: 2px 0 10px; }
+
+/* Destructive menu item */
+.menu-list .menu-danger { color: var(--bad); }
+.menu-list .menu-danger .desc { color: var(--muted); }
 
 /* Pie charts */
 .pie-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
