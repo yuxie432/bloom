@@ -73,17 +73,30 @@ button.danger { background: var(--bad); color: #fff; }
   background: #f0e8dd; color: var(--brand); border-radius: 999px;
   padding: 3px 9px; font-size: 12px; font-weight: 600;
 }
-.stars { color: var(--accent); font-size: 14px; white-space: nowrap; }
+.stars { color: var(--accent); font-size: 15px; white-space: nowrap; }
+.stars .emptystar { color: var(--line); }
+.stars .halfstar { position: relative; color: var(--line); }
+.stars .halfstar::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; overflow: hidden; color: var(--accent); }
+.rval { font-size: 12px; color: var(--muted); font-weight: 600; }
 .pill.strong { background: #e5efe6; color: var(--good); }
 .tag-done {
   display: inline-block; background: #eceae7; color: var(--muted);
   border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
   font-size: 12px; font-weight: 700; letter-spacing: .02em;
 }
-.card.finished { opacity: .62; }
-.card.finished .title { text-decoration: line-through; text-decoration-color: var(--muted); }
 label.check { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink); font-weight: 500; }
 label.check input { width: auto; }
+
+/* Half-step star rating input */
+.rating2 { display: flex; align-items: center; gap: 3px; }
+.rstar { position: relative; display: inline-block; width: 1em; height: 1em; font-size: 30px; line-height: 1; color: var(--line); }
+.rstar::after { content: '★'; position: absolute; left: 0; top: 0; }
+.rstar.full { color: var(--accent); }
+.rstar.half::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; height: 100%; overflow: hidden; color: var(--accent); z-index: 1; }
+.rstar .rh { position: absolute; top: 0; width: 50%; height: 100%; padding: 0; margin: 0; background: transparent; border: 0; cursor: pointer; z-index: 2; }
+.rstar .rl { left: 0; }
+.rstar .rr { right: 0; }
+.rclear { margin-left: 10px; background: transparent; border: 0; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; }
 .empty { color: var(--muted); text-align: center; padding: 48px 16px; }
 .empty p { margin: 6px 0; }
 

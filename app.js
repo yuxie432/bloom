@@ -92,9 +92,13 @@ const num = (v) => (v === '' || v == null || isNaN(+v) ? null : +v);
 
 function starStr(r) {
   if (!r) return '<span style="color:var(--muted)">unrated</span>';
-  const full = '★'.repeat(Math.round(r));
-  const empty = '☆'.repeat(5 - Math.round(r));
-  return `<span class="stars">${full}${empty}</span>`;
+  let h = '<span class="stars">';
+  for (let i = 1; i <= 5; i++) {
+    if (r >= i) h += '★';
+    else if (r >= i - 0.5) h += '<span class="halfstar">★</span>';
+    else h += '<span class="emptystar">★</span>';
+  }
+  return h + `</span> <span class="rval">${(+r).toFixed(1)}</span>`;
 }
 function toast(msg) {
   const t = $('#toast');
@@ -122,6 +126,24 @@ function beanOverall(b) {
 }
 function beanBrewCount(beanId) {
   return brews.filter((x) => x.beanId === beanId).length;
+}
+function beanLastBrew(beanId) {
+  return brews.filter((x) => x.beanId === beanId)
+    .reduce((m, x) => (x.date > m ? x.date : m), '');
+}
+/* Distinct existing values for a field, to offer as datalist choices. */
+function uniqValues(field, split = false) {
+  const set = new Set();
+  beans.forEach((b) => {
+    const v = b[field];
+    if (!v) return;
+    if (split) String(v).split(/[,、]/).forEach((x) => { x = x.trim(); if (x) set.add(x); });
+    else set.add(String(v).trim());
+  });
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+function datalist(id, opts) {
+  return `<datalist id="${id}">${opts.map((o) => `<option value="${esc(o)}"></option>`).join('')}</datalist>`;
 }
 /* Consumption: grams used = sum of brew doses; remaining vs bag mass. */
 function beanConsumption(b) {
@@ -179,7 +201,15 @@ function renderBeans() {
     el.innerHTML = emptyState('No beans yet', 'Add a bag of beans, then log brews against it.');
     return;
   }
-  const sorted = [...beans].sort((a, b) => beanLabel(a).localeCompare(beanLabel(b)));
+  const sorted = [...beans].sort((a, b) => {
+    const la = beanLastBrew(a.id), lb = beanLastBrew(b.id);
+    // unbrewed beans (newest, not yet tried) at the very top
+    if (!la && !lb) return beanLabel(a).localeCompare(beanLabel(b));
+    if (!la) return -1;
+    if (!lb) return 1;
+    if (la !== lb) return lb.localeCompare(la); // then most recent brew first
+    return beanLabel(a).localeCompare(beanLabel(b));
+  });
   el.innerHTML = sorted.map((b) => {
     const overall = beanOverall(b);
     const n = beanBrewCount(b.id);
@@ -217,8 +247,6 @@ function renderStats() {
   const now = new Date();
   const ym = now.toISOString().slice(0, 7);
   const cupsThisMonth = brews.filter((x) => (x.date || '').startsWith(ym)).length;
-  const rated = brews.filter((x) => x.rating);
-  const avgAll = rated.length ? (rated.reduce((s, x) => s + x.rating, 0) / rated.length) : null;
 
   const months = [];
   for (let i = 11; i >= 0; i--) {
@@ -235,9 +263,10 @@ function renderStats() {
   const techniqueCounts = countBy(brews.map((x) => x.technique));
   const deviceCounts = countBy(brews.map((x) => x.device));
 
-  const processRatings = avgBy(brews, (x) => beanField(x, 'process'));
+  // top process ranked by BEAN ratings (not individual brews)
+  const processRatings = avgByBeans('process');
   const favProcess = topEntry(
-    processRatings.filter((p) => p.n >= 3).length ? processRatings.filter((p) => p.n >= 3) : processRatings, 'avg');
+    processRatings.filter((p) => p.n >= 2).length ? processRatings.filter((p) => p.n >= 2) : processRatings, 'avg');
   const topRoaster = topEntry(roasterCounts, 'value');
 
   const beanScores = beans
@@ -250,12 +279,12 @@ function renderStats() {
     <div class="stat-cards">
       <div class="stat"><div class="num">${brews.length}</div><div class="lbl">total brews</div></div>
       <div class="stat"><div class="num">${cupsThisMonth}</div><div class="lbl">cups this month</div></div>
-      <div class="stat"><div class="num">${avgAll ? avgAll.toFixed(1) : '—'}</div><div class="lbl">avg brew rating</div></div>
       <div class="stat"><div class="num">${beans.length}</div><div class="lbl">beans logged</div></div>
+      <div class="stat"><div class="num">${beans.filter((b) => beanConsumption(b).finished).length}</div><div class="lbl">bags finished</div></div>
     </div>
     ${topRoaster ? `<div class="stat-cards">
       <div class="stat"><div class="num" style="font-size:17px">${esc(topRoaster.label)}</div><div class="lbl">most-brewed roaster (${topRoaster.value}×)</div></div>
-      <div class="stat"><div class="num" style="font-size:17px">${favProcess ? esc(favProcess.label) : '—'}</div><div class="lbl">top process by rating${favProcess ? ` (${favProcess.avg.toFixed(1)})` : ''}</div></div>
+      <div class="stat"><div class="num" style="font-size:17px">${favProcess ? esc(favProcess.label) : '—'}</div><div class="lbl">top process by bean rating${favProcess ? ` (${favProcess.avg.toFixed(1)})` : ''}</div></div>
     </div>` : ''}
     ${barBlock('Cups per month', perMonth)}
     ${roasterCounts.length ? barBlock('Brews by roaster', roasterCounts.sort((a, b) => b.value - a.value).slice(0, 8)) : ''}
@@ -299,6 +328,18 @@ function topEntry(rows, field) {
   if (!rows.length) return null;
   return [...rows].sort((a, b) => b[field] - a[field])[0];
 }
+/* Average of BEAN overall ratings, grouped by a bean field (e.g. process). */
+function avgByBeans(field) {
+  const m = new Map();
+  beans.forEach((b) => {
+    const k = b[field];
+    const r = beanOverall(b);
+    if (!k || r == null) return;
+    if (!m.has(k)) m.set(k, { sum: 0, n: 0 });
+    const o = m.get(k); o.sum += r; o.n += 1;
+  });
+  return [...m.entries()].map(([label, o]) => ({ label, avg: o.sum / o.n, n: o.n }));
+}
 function monthLabel(ym) {
   const [y, m] = ym.split('-');
   return new Date(+y, +m - 1, 1).toLocaleString('en', { month: 'short' });
@@ -335,27 +376,32 @@ function beanForm(rec = {}) {
   const consHint = c && c.remaining != null
     ? `${c.consumed} g used · ${c.remaining} g left of ${c.mass} g`
     : 'Enter bag mass (g) above to track how much is left.';
+  const listInput = (name, val, list, ph) =>
+    `<input name="${name}" list="${list}" value="${esc(val ?? '')}" placeholder="${esc(ph)}" autocomplete="off" />`;
   $('#modalForm').innerHTML = `
+    ${datalist('dl-roaster', uniqValues('roaster'))}
+    ${datalist('dl-country', uniqValues('originCountry'))}
+    ${datalist('dl-varietal', uniqValues('varietal', true))}
+    ${datalist('dl-region', uniqValues('originRegion'))}
+    ${datalist('dl-producer', uniqValues('producer', false))}
     <div class="grid2">
-      ${field('Roaster', textInput('roaster', rec.roaster, 'e.g. Terraform'))}
-      ${field('Origin country', textInput('originCountry', rec.originCountry, 'e.g. Ethiopia'))}
+      ${field('Roaster', listInput('roaster', rec.roaster, 'dl-roaster', 'choose or type'))}
+      ${field('Origin country', listInput('originCountry', rec.originCountry, 'dl-country', 'choose or type'))}
     </div>
     <div class="grid2">
-      ${field('Region / area', textInput('originRegion', rec.originRegion, 'e.g. Sidama Bensa'))}
-      ${field('Producer / farm', textInput('producer', rec.producer, 'e.g. Shantawene'))}
+      ${field('Region / area', listInput('originRegion', rec.originRegion, 'dl-region', 'e.g. Sidama Bensa'))}
+      ${field('Producer / farm', listInput('producer', rec.producer, 'dl-producer', 'e.g. Shantawene'))}
     </div>
     <div class="grid2">
       ${field('Roast level', selectInput('roastLevel', ROAST_LEVELS, rec.roastLevel))}
       ${field('Process', selectInput('process', PROCESS_METHODS, rec.process))}
     </div>
+    ${field('Varietal', listInput('varietal', rec.varietal, 'dl-varietal', 'e.g. Heirloom'), 'Choose one, or comma-separate several (e.g. SL28, SL34).')}
     <div class="grid2">
-      ${field('Varietal', textInput('varietal', rec.varietal, 'e.g. Heirloom'))}
       ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number'))}
+      ${field('Price (¥ CNY)', textInput('price', rec.price, '0.00', 'number'))}
     </div>
-    <div class="grid2">
-      ${field('Price', textInput('price', rec.price, 'optional'))}
-      ${field('Roast date', textInput('roastDate', rec.roastDate, 'optional'))}
-    </div>
+    ${field('Roast date', textInput('roastDate', rec.roastDate, 'optional'))}
     ${field('Tasting notes (flavour)', `<textarea name="flavour" placeholder="Jasmine, peach, black tea...">${esc(rec.flavour || '')}</textarea>`,
       'The roaster’s / your flavour descriptors for this bag.')}
     ${field('Overall rating', ratingWidget(rec.rating || 0))}
@@ -454,10 +500,20 @@ function renderTechFields(techKey, values) {
 }
 
 function ratingWidget(val) {
-  let html = '<div class="rating" data-rating>';
-  for (let i = 1; i <= 5; i++) html += `<button type="button" data-star="${i}" class="${i <= val ? 'on' : ''}">★</button>`;
-  html += `</div><input type="hidden" name="rating" value="${val}" />`;
-  return html;
+  val = +val || 0;
+  let stars = '';
+  for (let i = 1; i <= 5; i++) {
+    const cls = val >= i ? 'full' : (val >= i - 0.5 ? 'half' : '');
+    stars += `<span class="rstar ${cls}"><button type="button" class="rh rl" data-val="${i - 0.5}"></button><button type="button" class="rh rr" data-val="${i}"></button></span>`;
+  }
+  return `<div class="rating2" data-rating>${stars}<button type="button" class="rclear" data-val="0">clear</button></div><input type="hidden" name="rating" value="${val}" />`;
+}
+function paintRating(box, v) {
+  [...box.querySelectorAll('.rstar')].forEach((st, idx) => {
+    const i = idx + 1;
+    st.classList.toggle('full', v >= i);
+    st.classList.toggle('half', v < i && v >= i - 0.5);
+  });
 }
 
 /* ---------- SAVE ---------- */
@@ -478,7 +534,7 @@ async function saveForm(e) {
       process: fd.get('process') || '',
       varietal: fd.get('varietal')?.trim() || '',
       mass: num(fd.get('mass')),
-      price: fd.get('price')?.trim() || '',
+      price: num(fd.get('price')),
       roastDate: fd.get('roastDate')?.trim() || '',
       flavour: fd.get('flavour')?.trim() || '',
       rating: num(fd.get('rating')) || null,
@@ -710,12 +766,12 @@ function wireEvents() {
     if (menu === 'import') return doImport();
     if (menu === 'sample') return loadSample();
 
-    const star = e.target.closest('[data-star]');
-    if (star) {
-      const v = +star.dataset.star;
-      const box = star.closest('[data-rating]');
-      $$('[data-star]', box).forEach((s) => s.classList.toggle('on', +s.dataset.star <= v));
+    const rh = e.target.closest('.rating2 [data-val]');
+    if (rh) {
+      const v = +rh.dataset.val;
+      const box = rh.closest('[data-rating]');
       box.nextElementSibling.value = v;
+      paintRating(box, v);
     }
   });
 
