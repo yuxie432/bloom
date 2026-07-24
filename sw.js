@@ -1,6 +1,6 @@
 /* Service worker — makes the app installable and work offline.
  * Bump CACHE when you change any file so clients pick up the update. */
-const CACHE = 'pourover-v4';
+const CACHE = 'pourover-v5';
 const ASSETS = [
   './',
   './index.html',

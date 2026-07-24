@@ -91,11 +91,14 @@ export async function remove(store, id) {
 export const DEFAULT_SETTINGS = {
   id: 'app',
   grinders: ['Mavo Phantox Pro', 'Mavo Wizard 2.0'],
-  devices: ['树脂V60 01', '玻璃V60 02', '聪明杯 (Hario Switch)', 'Origami 155'],
-  papers: ['蛋糕滤纸 (Cake)', '锥型滤纸 (Conical)', 'Hario', 'Mola', 'Abaca'],
+  devices: ['Plastic V60 01', 'Glass V60 02', 'Hario Switch', 'Origami 155'],
+  papers: ['Origami Wave', 'Origami Cone', 'Hario', 'Mola', 'Abaca'],
+  roasters: [],
+  countries: [],
+  varietals: [],
   defaults: {
     grinder: 'Mavo Phantox Pro',
-    device: '树脂V60 01',
+    device: 'Plastic V60 01',
     paper: '',
     dose: 15,
     waterTemp: 92,

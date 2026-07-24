@@ -11,9 +11,6 @@ Thumbs.db
 # local backups exported from the app
 pourover-backup-*.json
 
-# personal setup guide — kept out of the public repo
-README.md
-
 # converted data + report (import via the app, don't commit)
 bloom-import.json
 conversion-report.md
