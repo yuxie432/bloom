@@ -114,8 +114,8 @@ function toast(msg) {
 }
 function beanLabel(b) {
   if (!b) return 'Unknown bean';
-  const place = [b.originRegion, b.producer].filter(Boolean).join(' ');
-  const name = place || varList(b.varietal).join(', ') || b.originCountry || 'Bean';
+  const named = [b.producer, b.lot ? `#${b.lot}` : null].filter(Boolean).join(' ');
+  const name = named || varList(b.varietal).join(', ') || b.originCountry || 'Bean';
   return b.roaster ? `${b.roaster} · ${name}` : name;
 }
 function money(n) { return n == null ? '' : '¥' + (Math.round(n * 100) / 100).toLocaleString(); }
@@ -223,14 +223,14 @@ function beanCard(b) {
   const status = c.finished
     ? `<span class="tag-done">Finished</span>`
     : (c.remaining != null ? `<span class="pill strong">${c.remaining} g left</span>` : '');
-  const meta = [b.originCountry, b.process, b.roastLevel, b.lot, ...varList(b.varietal)].filter(Boolean);
+  const meta = [b.originCountry, b.originRegion, b.process, ...varList(b.varietal), b.roastLevel].filter(Boolean);
   return `
     <div class="card bean-card" data-detail="${b.id}">
       <div class="bean-top">
         <div class="title">${esc(beanLabel(b))}</div>
         <div class="bean-rating">${starStr(overall, true)}</div>
       </div>
-      <div class="sub">${n} brew${n === 1 ? '' : 's'}${b.originCountry ? ' · ' + esc(b.originCountry) : ''} ${status}</div>
+      <div class="sub">${n} brew${n === 1 ? '' : 's'} ${status}</div>
       <div class="meta">${meta.map((m) => `<span class="pill">${esc(m)}</span>`).join('')}</div>
       ${b.flavour ? `<div class="sub" style="margin-top:6px">${esc(b.flavour)}</div>` : ''}
     </div>`;
