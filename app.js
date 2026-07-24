@@ -343,12 +343,11 @@ function renderStats() {
   const perGram = massPurchased ? totalSpend / massPurchased : null;
   const perCup = brews.length ? totalSpend / brews.length : null;
 
-  // mass of beans consumed (sum of brew doses) grouped by year
-  const consumedByYear = (() => {
-    const m = new Map();
-    brews.forEach((x) => { const y = (x.date || '').slice(0, 4); if (y) m.set(y, (m.get(y) || 0) + (x.dose || 0)); });
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, value]) => ({ label, value: Math.round(value) }));
-  })();
+  // mass of beans consumed this year (sum of brew doses)
+  const thisYear = String(now.getFullYear());
+  const consumedThisYear = Math.round(brews
+    .filter((x) => (x.date || '').startsWith(thisYear))
+    .reduce((s, x) => s + (x.dose || 0), 0));
 
   const beanScores = beans.map((b) => ({ label: beanLabel(b), avg: beanOverall(b) }))
     .filter((b) => b.avg != null).sort((a, b) => b.avg - a.avg).slice(0, 8);
@@ -367,6 +366,7 @@ function renderStats() {
       <div class="stat"><div class="num">${money(Math.round(totalSpend))}</div><div class="lbl">total spent</div></div>
       <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">avg per gram</div></div>
       <div class="stat"><div class="num">${perCup != null ? '¥' + perCup.toFixed(2) : '—'}</div><div class="lbl">avg per cup</div></div>
+      <div class="stat"><div class="num">${consumedThisYear} g</div><div class="lbl">consumed in ${thisYear}</div></div>
     </div>
 
     ${topRoaster ? `<div class="stat-cards">
@@ -376,8 +376,7 @@ function renderStats() {
 
     ${pieBlock('Process mix', beanProcessCounts)}
     ${pieBlock('Roaster mix', beanRoasterCounts)}
-    ${beanVarietalCounts.length ? barBlock('Varietal mix (packs)', beanVarietalCounts.sort((a, b) => b.value - a.value)) : ''}
-    ${consumedByYear.length ? barBlock('Coffee consumed by year (g)', consumedByYear) : ''}
+    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (packs, ≥3)', vr) : ''; })()}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
