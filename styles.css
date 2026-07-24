@@ -74,6 +74,16 @@ button.danger { background: var(--bad); color: #fff; }
   padding: 3px 9px; font-size: 12px; font-weight: 600;
 }
 .stars { color: var(--accent); font-size: 14px; white-space: nowrap; }
+.pill.strong { background: #e5efe6; color: var(--good); }
+.tag-done {
+  display: inline-block; background: #eceae7; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+}
+.card.finished { opacity: .62; }
+.card.finished .title { text-decoration: line-through; text-decoration-color: var(--muted); }
+label.check { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink); font-weight: 500; }
+label.check input { width: auto; }
 .empty { color: var(--muted); text-align: center; padding: 48px 16px; }
 .empty p { margin: 6px 0; }
 
@@ -148,6 +158,17 @@ textarea { resize: vertical; min-height: 70px; }
 .menu-list button { text-align: left; background: none; border: 0; padding: 15px 4px; font-size: 16px; color: var(--ink); border-bottom: 1px solid var(--line); cursor: pointer; }
 .menu-list button:last-child { border-bottom: 0; }
 .menu-list .desc { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+
+/* Settings: chips + add row */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f0e8dd; color: var(--brand); border-radius: 999px;
+  padding: 5px 6px 5px 11px; font-size: 13px; font-weight: 600;
+}
+.chip button { border: 0; background: rgba(111,78,55,.15); color: var(--brand); border-radius: 999px; width: 18px; height: 18px; font-size: 11px; cursor: pointer; line-height: 1; }
+.add-row { display: flex; gap: 8px; margin-top: 8px; }
+.add-row input { flex: 1; }
 
 /* Toast */
 .toast {

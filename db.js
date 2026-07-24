@@ -12,8 +12,8 @@
  * ========================================================================= */
 
 const DB_NAME = 'pourover-journal';
-const DB_VERSION = 1;
-const STORES = ['beans', 'brews'];
+const DB_VERSION = 2;
+const STORES = ['beans', 'brews', 'settings'];
 
 let _dbPromise = null;
 
@@ -86,17 +86,58 @@ export async function remove(store, id) {
   });
 }
 
+/* ---- Settings (editable lists + defaults, single record id='app') ---- */
+
+export const DEFAULT_SETTINGS = {
+  id: 'app',
+  grinders: ['Mavo Phantox Pro', 'Mavo Wizard 2.0'],
+  devices: ['树脂V60 01', '玻璃V60 02', '聪明杯 (Hario Switch)', 'Origami 155'],
+  papers: ['蛋糕滤纸 (Cake)', '锥型滤纸 (Conical)', 'Hario', 'Mola', 'Abaca'],
+  defaults: {
+    grinder: 'Mavo Phantox Pro',
+    device: '树脂V60 01',
+    paper: '',
+    dose: 15,
+    waterTemp: 92,
+    technique: 'Three-stage',
+  },
+};
+
+export async function getSettings() {
+  const s = await get('settings', 'app');
+  if (!s) return { ...DEFAULT_SETTINGS };
+  // merge so new default keys appear for older stored settings
+  return {
+    ...DEFAULT_SETTINGS,
+    ...s,
+    defaults: { ...DEFAULT_SETTINGS.defaults, ...(s.defaults || {}) },
+  };
+}
+
+export async function saveSettings(settings) {
+  const rec = { ...settings, id: 'app' };
+  const os = await tx('settings', 'readwrite');
+  return new Promise((resolve, reject) => {
+    const req = os.put(rec);
+    req.onsuccess = () => resolve(rec);
+    req.onerror = () => reject(req.error);
+  });
+}
+
 /* ---- Backup / restore (manual cross-device transfer without a cloud) ---- */
 
 /** Export everything as a single JSON object. */
 export async function exportAll() {
-  const [beans, brews] = await Promise.all([getAll('beans'), getAll('brews')]);
+  const [beans, brews, settings] = await Promise.all([
+    getAll('beans'), getAll('brews'), get('settings', 'app'),
+  ]);
   return {
     app: 'pourover-journal',
     version: DB_VERSION,
     exportedAt: new Date().toISOString(),
     beans,
     brews,
+    settings: settings || undefined,
   };
 }
 
@@ -118,6 +159,7 @@ export async function importAll(data, mode = 'merge') {
     const t = db.transaction(STORES, 'readwrite');
     for (const b of data.beans) t.objectStore('beans').put(b);
     for (const b of data.brews) t.objectStore('brews').put(b);
+    if (data.settings) t.objectStore('settings').put({ ...data.settings, id: 'app' });
     t.oncomplete = resolve;
     t.onerror = () => reject(t.error);
   });
