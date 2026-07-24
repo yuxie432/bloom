@@ -325,6 +325,7 @@ function renderStats() {
   // pie charts count packs of beans (not brews)
   const beanProcessCounts = countBy(beans.map((b) => b.process));
   const beanRoasterCounts = countBy(beans.map((b) => b.roaster));
+  const beanVarietalCounts = countBy(beans.flatMap((b) => varList(b.varietal)));
   const techniqueCounts = countBy(brews.map((x) => x.technique));
   const deviceCounts = countBy(brews.map((x) => x.device));
 
@@ -367,6 +368,7 @@ function renderStats() {
 
     ${pieBlock('Process mix', beanProcessCounts)}
     ${pieBlock('Roaster mix', beanRoasterCounts)}
+    ${pieBlock('Varietal mix', beanVarietalCounts)}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
@@ -466,7 +468,7 @@ function beanForm(rec = {}) {
     </div>
     <div class="grid2">
       ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number'))}
-      ${field('Price (¥ CNY)', textInput('price', rec.price, '0.00', 'number'))}
+      ${field('Price (¥ CNY)', textInput('price', rec.price, '0.00', 'number', 'step="0.01" inputmode="decimal"'))}
     </div>
     ${field('Mass left (g)', textInput('massLeft', c ? (c.remaining ?? '') : '', 'auto from brews', 'number'), 'Defaults to total − brews used. Type to correct it; clear to reset to auto.')}
     ${field('Roast date', textInput('roastDate', rec.roastDate, 'optional'))}
