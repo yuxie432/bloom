@@ -4,7 +4,7 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, clearAll,
-} from './db.js?v=9';
+} from './db.js?v=10';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -322,6 +322,9 @@ function renderStats() {
 
   const roasterCounts = countBy(brews.map((x) => beanField(x, 'roaster')));
   const processCounts = countBy(brews.map((x) => beanField(x, 'process')));
+  // pie charts count packs of beans (not brews)
+  const beanProcessCounts = countBy(beans.map((b) => b.process));
+  const beanRoasterCounts = countBy(beans.map((b) => b.roaster));
   const techniqueCounts = countBy(brews.map((x) => x.technique));
   const deviceCounts = countBy(brews.map((x) => x.device));
 
@@ -362,8 +365,8 @@ function renderStats() {
       <div class="stat"><div class="num" style="font-size:17px">${favProcess ? esc(favProcess.label) : '—'}</div><div class="lbl">top process by bean rating${favProcess ? ` (${favProcess.avg.toFixed(1)})` : ''}</div></div>
     </div>` : ''}
 
-    ${pieBlock('Process mix', processCounts)}
-    ${pieBlock('Roaster mix', roasterCounts)}
+    ${pieBlock('Process mix', beanProcessCounts)}
+    ${pieBlock('Roaster mix', beanRoasterCounts)}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
@@ -387,7 +390,7 @@ function pieBlock(title, rows) {
   const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   let acc = 0;
   const stops = rows.map((r, i) => { const a = acc / total * 360; acc += r.value; const b = acc / total * 360; return `${PIE_COLORS[i % PIE_COLORS.length]} ${a}deg ${b}deg`; }).join(', ');
-  const legend = rows.map((r, i) => `<div class="leg"><span class="sw" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span>${esc(r.label)} <b>${Math.round(r.value / total * 100)}%</b></div>`).join('');
+  const legend = rows.map((r, i) => `<div class="leg"><span class="sw" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span>${esc(r.label)} <b>${r.value}</b></div>`).join('');
   return `<div class="chart-block"><h4>${esc(title)}</h4><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${legend}</div></div></div>`;
 }
 function countBy(arr) { const m = new Map(); arr.filter(Boolean).forEach((k) => m.set(k, (m.get(k) || 0) + 1)); return [...m.entries()].map(([label, value]) => ({ label, value })); }
@@ -509,7 +512,7 @@ function brewForm(rec = {}) {
     <div class="section-label">Recipe</div>
     <div class="grid2">
       ${field('Grinder', selectInput('grinder', settings.grinders, cur.grinder))}
-      ${field('Grind', textInput('grind', rec.grind, '8.5', 'number'))}
+      ${field('Grind', textInput('grind', rec.grind, '8.5', 'number', 'step="any" inputmode="decimal"'))}
     </div>
     <div class="grid2">
       ${field('Dose (g)', textInput('dose', cur.dose, '15', 'number'))}
@@ -646,8 +649,6 @@ function openMenu() {
         <span class="desc">Save all data to a file.</span></button>
       <button type="button" data-menu="import">Import backup (.json)
         <span class="desc">Merge a backup or converted Notion file.</span></button>
-      <button type="button" data-menu="sample">Load sample data
-        <span class="desc">Add a couple of example records.</span></button>
       <button type="button" data-menu="erase" class="menu-danger">Erase all data
         <span class="desc">Delete every bean, brew &amp; setting on this device. Cannot be undone.</span></button>
     </div>`;
@@ -706,7 +707,7 @@ function handleSettingsClick(e) {
   return false;
 }
 
-/* ---------- Backup / restore / sample ---------- */
+/* ---------- Backup / restore ---------- */
 async function doExport() {
   const data = await exportAll();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -728,20 +729,6 @@ function doImport() {
     } catch (err) { toast(err.message || 'Import failed'); }
   };
   inp.click();
-}
-async function loadSample() {
-  const b1 = { id: uid(), roaster: 'Terraform', originCountry: 'Ethiopia', originRegion: 'Sidama Bensa',
-    producer: 'Shantawene', lot: '', roastLevel: 'Light', process: 'Washed', varietal: ['Heirloom'],
-    mass: 100, price: 55, flavour: 'Jasmine, peach, black tea', rating: 4, finished: false };
-  await put('beans', b1);
-  const mk = (over) => ({ id: uid(), date: todayISO(), beanId: b1.id, grinder: 'Mavo Phantox Pro',
-    grind: 8.5, dose: 15, waterTemp: 92, device: 'Plastic V60 01', paper: '', technique: 'Three-stage',
-    tech: { bloomMass: 45, pour2Time: '0:30', pour2Mass: 130, pour3Time: '1:00', totalWater: 245, cutoffTime: '2:30' },
-    waterMass: 245, aroma: 4, acidity: 4, sweetness: 4, body: 3, bitterness: 1, aftertaste: 4,
-    rating: 4, flavorNotes: '', notes: '', ...over });
-  await put('brews', mk({ rating: 5, flavorNotes: 'Bright, clean, floral' }));
-  await put('brews', mk({}));
-  await reload(); closeModal(); toast('Sample data loaded');
 }
 async function eraseAll() {
   if (!confirm('Erase ALL data on this device — every bean, brew and setting?\n\nThis cannot be undone. (You can re-import a backup afterwards.)')) return;
@@ -836,7 +823,6 @@ function wireEvents() {
     if (menu === 'settings') return settingsForm();
     if (menu === 'export') return doExport();
     if (menu === 'import') return doImport();
-    if (menu === 'sample') return loadSample();
     if (menu === 'erase') return eraseAll();
 
     const rh = e.target.closest('.rating2 [data-val]');

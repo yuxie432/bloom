@@ -15,3 +15,6 @@ pourover-backup-*.json
 bloom-import.json
 conversion-report.md
 convert.py
+
+# agent handoff notes (local only)
+HANDOFF.md

@@ -195,7 +195,7 @@ textarea { resize: vertical; min-height: 70px; }
 .msel-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 8px; margin-bottom: 6px; }
 
 /* Pagination */
-.pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px 4px; margin-bottom: 24px; color: var(--muted); font-size: 13px; position: relative; z-index: 5; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px 4px; margin-bottom: 56px; color: var(--muted); font-size: 13px; position: relative; z-index: 5; }
 .pager button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; font-size: 15px; font-weight: 600; color: var(--brand); cursor: pointer; }
 .pager button:disabled { opacity: .4; cursor: default; }
 
