@@ -85,6 +85,8 @@ let settings = null;
 let editing = { store: null, record: null };
 let brewsPage = 0;
 let beansPage = 0;
+let detailBeanId = null;   // bean whose detail view is open
+let returnBeanId = null;   // when set, closing/saving a form returns to that bean's detail
 
 /* ---------- Helpers ---------- */
 const $  = (sel, el = document) => el.querySelector(sel);
@@ -244,6 +246,7 @@ function emptyState(t, s) {
  * ========================================================================= */
 function beanDetail(b) {
   editing = { store: null, record: null };
+  detailBeanId = b.id;
   const overall = beanOverall(b);
   const c = beanConsumption(b);
   const bb = brews.filter((x) => x.beanId === b.id).sort((a, b2) => (b2.date || '').localeCompare(a.date || ''));
@@ -277,12 +280,17 @@ function beanDetail(b) {
 function brewMiniRow(x) {
   const total = x.waterMass || (x.tech && x.tech.totalWater) || null;
   const ratio = x.dose && total ? `1:${(total / x.dose).toFixed(1)}` : '';
-  return `<div class="minirow" data-edit="brews" data-id="${x.id}">
-    <span class="mr-date">${esc(x.date || '')}</span>
-    <span class="mr-tech">${esc(x.technique || '')}</span>
-    <span class="mr-ratio">${esc(ratio)}</span>
-    <span class="mr-star">${x.rating ? starStr(x.rating) : ''}</span>
-    <span class="mr-go">›</span>
+  const sub = [
+    x.grind != null ? `grind ${x.grind}` : null,
+    x.waterTemp ? `${x.waterTemp}°C` : null,
+    x.device || null, ratio,
+  ].filter(Boolean).join(' · ');
+  return `<div class="minirow" data-mini="${x.id}">
+    <div class="mr-l">
+      <div class="mr-top"><span class="mr-date">${esc(x.date || '')}</span><span class="mr-tech">${esc(x.technique || '')}</span></div>
+      <div class="mr-sub">${esc(sub)}</div>
+    </div>
+    <div class="mr-r">${x.rating ? starStr(x.rating) : '<span class="mr-unrated">—</span>'}<span class="mr-go">›</span></div>
   </div>`;
 }
 
@@ -396,6 +404,16 @@ function closeModal() {
   $('#deleteBtn').hidden = true;
   $('.modal-foot .primary').style.display = '';
   editing = { store: null, record: null };
+  returnBeanId = null; detailBeanId = null;
+}
+/* Close a form; if it was opened from a bean detail, go back there (refreshed). */
+function closeOrBack() {
+  if (returnBeanId) {
+    const b = beans.find((x) => x.id === returnBeanId);
+    returnBeanId = null;
+    if (b) return beanDetail(b);
+  }
+  closeModal();
 }
 function field(label, inner, hint) {
   return `<div><label>${esc(label)}</label>${inner}${hint ? `<div class="field-hint">${esc(hint)}</div>` : ''}</div>`;
@@ -417,16 +435,10 @@ function beanForm(rec = {}) {
     : 'Enter bag mass (g) below to track how much is left.';
   const selectedVar = varList(rec.varietal);
 
-  const managed = (labelTxt, name, key, cur) => {
-    const opts = optionPool(key, name, false);
-    return `${field(labelTxt, selectInput(name, opts, cur || ''))}
-      <div class="add-row mini"><input type="text" data-optinput="${name}" placeholder="+ add new ${labelTxt.toLowerCase()}" /><button type="button" class="ghost" data-optadd="${name}">Add</button></div>`;
-  };
-
   $('#modalForm').innerHTML = `
     <div class="grid2">
-      ${managed('Roaster', 'roaster', 'roasters', rec.roaster)}
-      ${managed('Origin country', 'originCountry', 'countries', rec.originCountry)}
+      ${field('Roaster', selectInput('roaster', optionPool('roasters', 'roaster', false), rec.roaster || ''))}
+      ${field('Origin country', selectInput('originCountry', optionPool('countries', 'originCountry', false), rec.originCountry || ''))}
     </div>
     <div class="grid2">
       ${field('Region / area', textInput('originRegion', rec.originRegion, 'e.g. Sidama Bensa'))}
@@ -436,12 +448,12 @@ function beanForm(rec = {}) {
 
     <div class="section-label">Varietals</div>
     <div class="msel-chips" id="vchips">${selectedVar.map(varChip).join('')}</div>
-    <div class="add-row"><select data-vadd><option value="">+ add existing…</option>${optionPool('varietals', 'varietal', true).filter((v) => !selectedVar.includes(v)).map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>
-    <div class="add-row"><input type="text" data-vinput placeholder="Or create new varietal..." /><button type="button" class="ghost" data-vaddnew>Add</button></div>
+    <div class="add-row"><select data-vadd><option value="">+ add varietal…</option>${optionPool('varietals', 'varietal', true).filter((v) => !selectedVar.includes(v)).map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>
+    <div class="field-hint">Add or rename options centrally in ⋮ → Equipment &amp; options.</div>
 
     <div class="grid2">
       ${field('Roast level', selectInput('roastLevel', ROAST_LEVELS, rec.roastLevel))}
-      ${field('Process', selectInput('process', PROCESS_METHODS, rec.process))}
+      ${field('Process', selectInput('process', optionPool('processes', 'process', false), rec.process))}
     </div>
     <div class="grid2">
       ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number'))}
@@ -483,6 +495,7 @@ function brewForm(rec = {}) {
   }).join('');
 
   $('#modalForm').innerHTML = `
+    ${returnBeanId ? '<button type="button" class="backbtn" data-backbean>‹ Back to bean</button>' : ''}
     ${field('Date', textInput('date', rec.date || todayISO(), '', 'date'))}
     ${field('Bean', beanOpts)}
 
@@ -591,15 +604,16 @@ async function saveForm(e) {
   }
   await put(store, rec);
   await reload();
-  closeModal();
+  closeOrBack();
   toast('Saved ☕');
 }
 async function deleteCurrent() {
   const { store, record } = editing;
   if (!record?.id) return;
   if (!confirm('Delete this entry? This cannot be undone.')) return;
+  if (store === 'beans') returnBeanId = null; // bean gone, nowhere to return
   await remove(store, record.id);
-  await reload(); closeModal(); toast('Deleted');
+  await reload(); closeOrBack(); toast('Deleted');
 }
 
 /* =========================================================================
@@ -636,6 +650,7 @@ function settingsForm() {
     ${listEditor('roasters', 'Roasters')}
     ${listEditor('countries', 'Countries')}
     ${listEditor('varietals', 'Varietals')}
+    ${listEditor('processes', 'Processes')}
     <div class="section-label">Defaults for new brews</div>
     <div class="grid2">
       ${field('Grinder', selectInput('d_grinder', settings.grinders, d.grinder))}
@@ -749,9 +764,15 @@ function wireEvents() {
     if (handleSettingsClick(e)) return;
 
     const act = e.target.closest('[data-action]')?.dataset.action;
-    if (act === 'new-brew') return brewForm();
-    if (act === 'new-bean') return beanForm();
-    if (act === 'close-modal') return closeModal();
+    if (act === 'new-brew') { returnBeanId = null; return brewForm(); }
+    if (act === 'new-bean') { returnBeanId = null; return beanForm(); }
+    if (act === 'close-modal') return closeOrBack();
+
+    // back from a form to the bean detail it was opened from
+    if (e.target.closest('[data-backbean]')) {
+      const b = beans.find((x) => x.id === returnBeanId); returnBeanId = null;
+      return b ? beanDetail(b) : closeModal();
+    }
 
     // pagination
     const pg = e.target.closest('[data-page]');
@@ -762,42 +783,24 @@ function wireEvents() {
       return;
     }
 
-    // bean detail
+    // brew mini-row inside a bean detail -> open brew, remember the bean to return to
+    const mini = e.target.closest('[data-mini]');
+    if (mini) { const rec = brews.find((r) => r.id === mini.dataset.mini); if (rec) { returnBeanId = detailBeanId; return brewForm(rec); } }
+
+    // bean detail (from bean card)
     const det = e.target.closest('[data-detail]');
-    if (det) { const b = beans.find((x) => x.id === det.dataset.detail); if (b) return beanDetail(b); }
+    if (det) { const b = beans.find((x) => x.id === det.dataset.detail); if (b) { returnBeanId = null; return beanDetail(b); } }
+    // edit bean from its detail -> return to detail afterwards
     const eb = e.target.closest('[data-editbean]');
-    if (eb) { const b = beans.find((x) => x.id === eb.dataset.editbean); if (b) return beanForm(b); }
+    if (eb) { const b = beans.find((x) => x.id === eb.dataset.editbean); if (b) { returnBeanId = detailBeanId; return beanForm(b); } }
 
-    // brew edit (also from detail mini-rows)
+    // brew edit from the main brews list
     const card = e.target.closest('[data-edit]');
-    if (card) { const rec = brews.find((r) => r.id === card.dataset.id); if (rec) return brewForm(rec); }
+    if (card) { const rec = brews.find((r) => r.id === card.dataset.id); if (rec) { returnBeanId = null; return brewForm(rec); } }
 
-    // varietal chip add/remove
+    // remove a selected varietal chip
     const vdel = e.target.closest('[data-vdel]');
     if (vdel) { vdel.closest('.chip').remove(); return; }
-    const vnew = e.target.closest('[data-vaddnew]');
-    if (vnew) {
-      const inp = $('[data-vinput]'); const v = inp.value.trim();
-      if (v && !$$('#vchips .chip').some((c) => c.dataset.vchip === v)) {
-        $('#vchips').insertAdjacentHTML('beforeend', varChip(v));
-        if (!settings.varietals.includes(v)) { settings.varietals.push(v); saveSettings(settings); }
-      }
-      inp.value = ''; return;
-    }
-
-    // managed single-select add (roaster/country)
-    const optadd = e.target.closest('[data-optadd]');
-    if (optadd) {
-      const name = optadd.dataset.optadd; const inp = $(`[data-optinput="${name}"]`); const v = inp.value.trim();
-      if (v) {
-        const sel = $(`select[name="${name}"]`);
-        if (!$$('option', sel).some((o) => o.value === v)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(v)}">${esc(v)}</option>`);
-        sel.value = v;
-        const key = name === 'roaster' ? 'roasters' : 'countries';
-        if (!settings[key].includes(v)) { settings[key].push(v); saveSettings(settings); }
-      }
-      inp.value = ''; return;
-    }
 
     const menu = e.target.closest('[data-menu]')?.dataset.menu;
     if (menu === 'settings') return settingsForm();

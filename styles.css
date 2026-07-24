@@ -208,12 +208,18 @@ textarea { resize: vertical; min-height: 70px; }
 .detail-grid .dv { font-size: 14px; color: var(--ink); }
 .detail-edit { margin: 12px 0 4px; border: 1px solid var(--line); border-radius: 8px; padding: 9px; width: 100%; }
 .minilist { display: flex; flex-direction: column; }
-.minirow { display: grid; grid-template-columns: auto 1fr auto auto 16px; gap: 8px; align-items: center; padding: 11px 4px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; }
+.minirow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .minirow:active { background: #f0e8dd; }
-.minirow .mr-date { color: var(--muted); }
-.minirow .mr-tech { font-weight: 600; color: var(--brand); }
-.minirow .mr-ratio { color: var(--muted); }
-.minirow .mr-go { color: var(--muted); text-align: right; }
+.minirow .mr-top { display: flex; gap: 8px; align-items: baseline; }
+.minirow .mr-date { color: var(--muted); font-size: 13px; }
+.minirow .mr-tech { font-weight: 650; color: var(--brand); font-size: 14px; }
+.minirow .mr-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.minirow .mr-r { display: flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
+.minirow .mr-unrated { color: var(--line); }
+.minirow .mr-go { color: var(--muted); font-size: 18px; }
+
+/* Back button in forms opened from a bean detail */
+.backbtn { background: transparent; border: 0; color: var(--brand); font-size: 15px; font-weight: 650; cursor: pointer; padding: 2px 0 10px; }
 
 /* Pie charts */
 .pie-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }

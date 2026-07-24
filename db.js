@@ -96,6 +96,9 @@ export const DEFAULT_SETTINGS = {
   roasters: [],
   countries: [],
   varietals: [],
+  processes: ['Washed', 'Natural', 'Honey', 'Black honey', 'Anaerobic natural',
+    'Anaerobic washed', 'Anaerobic honey', 'Anaerobic fermentation washed',
+    'Carbonic maceration', 'Wet hulling', 'Other'],
   defaults: {
     grinder: 'Mavo Phantox Pro',
     device: 'Plastic V60 01',
