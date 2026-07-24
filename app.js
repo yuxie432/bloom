@@ -320,8 +320,6 @@ function renderStats() {
   }
   const perMonth = months.map((m) => ({ label: monthLabel(m), value: brews.filter((x) => (x.date || '').startsWith(m)).length }));
 
-  const roasterCounts = countBy(brews.map((x) => beanField(x, 'roaster')));
-  const processCounts = countBy(brews.map((x) => beanField(x, 'process')));
   // pie charts count packs of beans (not brews)
   const beanProcessCounts = countBy(beans.map((b) => b.process));
   const beanRoasterCounts = countBy(beans.map((b) => b.roaster));
@@ -329,9 +327,9 @@ function renderStats() {
   const techniqueCounts = countBy(brews.map((x) => x.technique));
   const deviceCounts = countBy(brews.map((x) => x.device));
 
-  const processRatings = avgByBeans('process');
-  const favProcess = topEntry(processRatings.filter((p) => p.n >= 2).length ? processRatings.filter((p) => p.n >= 2) : processRatings, 'avg');
-  const topRoaster = topEntry(roasterCounts, 'value');
+  const processRatings = avgByBeans('process')
+    .sort((a, b) => b.avg - a.avg)
+    .map((p) => ({ label: p.label, value: +p.avg.toFixed(1) }));
 
   // stock + price
   const active = beans.filter((b) => !beanConsumption(b).finished);
@@ -342,12 +340,6 @@ function renderStats() {
   const massPurchased = priced.reduce((s, b) => s + (b.mass || 0), 0);
   const perGram = massPurchased ? totalSpend / massPurchased : null;
   const perCup = brews.length ? totalSpend / brews.length : null;
-
-  // mass of beans consumed this year (sum of brew doses)
-  const thisYear = String(now.getFullYear());
-  const consumedThisYear = Math.round(brews
-    .filter((x) => (x.date || '').startsWith(thisYear))
-    .reduce((s, x) => s + (x.dose || 0), 0));
 
   const beanScores = beans.map((b) => ({ label: beanLabel(b), avg: beanOverall(b) }))
     .filter((b) => b.avg != null).sort((a, b) => b.avg - a.avg).slice(0, 8);
@@ -366,17 +358,12 @@ function renderStats() {
       <div class="stat"><div class="num">${money(Math.round(totalSpend))}</div><div class="lbl">total spent</div></div>
       <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">avg per gram</div></div>
       <div class="stat"><div class="num">${perCup != null ? '¥' + perCup.toFixed(2) : '—'}</div><div class="lbl">avg per cup</div></div>
-      <div class="stat"><div class="num">${consumedThisYear} g</div><div class="lbl">consumed in ${thisYear}</div></div>
     </div>
-
-    ${topRoaster ? `<div class="stat-cards">
-      <div class="stat"><div class="num" style="font-size:17px">${esc(topRoaster.label)}</div><div class="lbl">most-brewed roaster (${topRoaster.value}×)</div></div>
-      <div class="stat"><div class="num" style="font-size:17px">${favProcess ? esc(favProcess.label) : '—'}</div><div class="lbl">top process by bean rating${favProcess ? ` (${favProcess.avg.toFixed(1)})` : ''}</div></div>
-    </div>` : ''}
 
     ${pieBlock('Process mix', beanProcessCounts)}
     ${pieBlock('Roaster mix', beanRoasterCounts)}
     ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (packs, ≥3)', vr) : ''; })()}
+    ${processRatings.length ? barBlock('Avg rating by process', processRatings, 5) : ''}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
