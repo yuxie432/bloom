@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=12';
+} from './db.js?v=14';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=12';
+} from './sync.js?v=14';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -242,9 +242,20 @@ function pager(kind, page, pages, total) {
   if (pages <= 1) return `<div class="pager"><span>${total} total</span></div>`;
   return `<div class="pager">
     <button data-page="${kind}:prev" ${page === 0 ? 'disabled' : ''}>‹ Prev</button>
-    <span>Page ${page + 1} / ${pages} · ${total}</span>
+    <span class="pager-mid">Page
+      <input class="pager-input" type="number" inputmode="numeric" min="1" max="${pages}"
+        value="${page + 1}" data-goto="${kind}" aria-label="Go to page" />
+      / ${pages} · ${total}</span>
     <button data-page="${kind}:next" ${page >= pages - 1 ? 'disabled' : ''}>Next ›</button>
   </div>`;
+}
+function gotoPage(kind, rawVal, rawMax) {
+  const max = Math.max(1, parseInt(rawMax, 10) || 1);
+  let p = parseInt(rawVal, 10);
+  if (!Number.isFinite(p)) return;
+  p = Math.min(max, Math.max(1, p)) - 1;   // clamp to range, 0-indexed
+  if (kind === 'brews') { brewsPage = p; renderBrews(); }
+  else { beansPage = p; renderBeans(); }
 }
 function emptyState(t, s) {
   return `<div class="empty"><p style="font-size:34px">🌸</p><p><strong>${esc(t)}</strong></p><p>${esc(s)}</p></div>`;
@@ -337,9 +348,14 @@ function renderStats() {
   const stockG = Math.round(active.reduce((s, b) => { const r = beanConsumption(b).remaining; return s + (r && r > 0 ? r : 0); }, 0));
   const priced = beans.filter((b) => b.price != null);
   const totalSpend = priced.reduce((s, b) => s + b.price, 0);
-  // avg per gram = money spent / total mass of beans purchased (bag content masses)
-  const massPurchased = priced.reduce((s, b) => s + (b.mass || 0), 0);
-  const perGram = massPurchased ? totalSpend / massPurchased : null;
+  // total labelled mass across ALL packs (including unpriced ones)
+  const totalMassAll = beans.reduce((s, b) => s + (b.mass || 0), 0);
+  // avg per gram = total money spent / total labelled mass of all beans.
+  // Unpriced beans add mass but no spend, so this reads a bit low — by design.
+  const perGram = totalMassAll ? totalSpend / totalMassAll : null;
+  // consumed = total labelled mass − what's still in stock (more reliable than
+  // summing brew doses, since some brews weren't logged)
+  const consumedTotal = Math.max(0, Math.round(totalMassAll - stockG));
 
   const beanScores = beans.map((b) => ({ label: beanLabel(b), avg: beanOverall(b) }))
     .filter((b) => b.avg != null).sort((a, b) => b.avg - a.avg).slice(0, 8);
@@ -349,7 +365,7 @@ function renderStats() {
       <div class="stat"><div class="num">${stockG} g</div><div class="lbl">coffee in stock</div></div>
       <div class="stat"><div class="num">${active.length}</div><div class="lbl">packs open</div></div>
       <div class="stat"><div class="num">${brews.length}</div><div class="lbl">total brews</div></div>
-      <div class="stat"><div class="num">${beans.length}</div><div class="lbl">beans logged</div></div>
+      <div class="stat"><div class="num">${consumedTotal} g</div><div class="lbl">beans consumed</div></div>
       <div class="stat"><div class="num">${money(Math.round(totalSpend))}</div><div class="lbl">total spent</div></div>
       <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">average per gram</div></div>
     </div>
@@ -788,10 +804,15 @@ function wireEvents() {
   $$('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
   $('#menuBtn').addEventListener('click', openMenu);
 
+  // Bloom logo = home: jump to Brews, page 1
+  const goHome = () => { brewsPage = 0; switchView('brews'); renderBrews(); document.scrollingElement?.scrollTo(0, 0); };
+  $('#homeBtn').addEventListener('click', goHome);
+  $('#homeBtn').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goHome(); } });
+
   // auto-colon in time fields
   document.addEventListener('input', (e) => { if (e.target.classList && e.target.classList.contains('timefield')) fmtTimeField(e.target); });
 
-  // varietal "add existing" select
+  // varietal "add existing" select + pager "go to page" input
   document.addEventListener('change', (e) => {
     const sel = e.target.closest('select[data-vadd]');
     if (sel && sel.value) {
@@ -799,7 +820,15 @@ function wireEvents() {
       if (!$$('#vchips .chip').some((c) => c.dataset.vchip === v)) $('#vchips').insertAdjacentHTML('beforeend', varChip(v));
       sel.querySelector(`option[value="${CSS.escape(v)}"]`)?.remove();
       sel.value = '';
+      return;
     }
+    const goto = e.target.closest('.pager-input[data-goto]');
+    if (goto) gotoPage(goto.dataset.goto, goto.value, goto.max);
+  });
+  // Enter also jumps (without waiting for blur)
+  document.addEventListener('keydown', (e) => {
+    const goto = e.target.closest('.pager-input[data-goto]');
+    if (goto && e.key === 'Enter') { e.preventDefault(); gotoPage(goto.dataset.goto, goto.value, goto.max); }
   });
 
   document.addEventListener('click', (e) => {

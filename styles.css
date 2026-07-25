@@ -34,7 +34,8 @@ body {
   background: var(--brand); color: #fff;
   box-shadow: var(--shadow);
 }
-.app-header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+.app-header h1 { font-size: 18px; margin: 0; font-weight: 650; cursor: pointer; user-select: none; }
+.app-header h1:active { opacity: .6; }
 
 .icon-btn {
   background: transparent; border: 0; color: inherit;
@@ -199,6 +200,10 @@ textarea { resize: vertical; min-height: 70px; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px 4px; margin-bottom: 56px; color: var(--muted); font-size: 13px; position: relative; z-index: 5; }
 .pager button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 16px; font-size: 15px; font-weight: 600; color: var(--brand); cursor: pointer; }
 .pager button:disabled { opacity: .4; cursor: default; }
+.pager-mid { display: inline-flex; align-items: center; gap: 5px; }
+.pager-input { width: 3.2em; text-align: center; font-size: 14px; font-weight: 600; color: var(--brand);
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 5px 4px; -moz-appearance: textfield; }
+.pager-input::-webkit-outer-spin-button, .pager-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* Bean detail */
 .detail-rating { margin-bottom: 8px; }
