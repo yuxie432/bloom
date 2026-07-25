@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=18';
+} from './db.js?v=19';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=18';
+} from './sync.js?v=19';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -449,28 +449,28 @@ function barBlock(title, rows, max) {
   return `<div class="chart-block"><h4>${esc(title)}</h4>${body}</div>`;
 }
 /* Process colours — earthy tones that sit with the coffee/brown theme, still
- * hinting at cup character:
- *   Washed          → fresh green (clean, floral clarity)
- *   Anaerobic washed→ jade green (even more clarity / exotic)
+ * hinting at cup character. Greens + brown are drawn from PIE_PALETTE so the
+ * three pies read as one family:
+ *   Washed          → khaki green (= "Other" in the palette)
+ *   Anaerobic washed→ olive green (= 有容乃大's slice)
  *   Natural         → terracotta red (fruity, jammy)
  *   Anaerobic natural→ wine plum (fermented / boozy / winey)
- *   Honey / Anaerobic honey → honeyed amber & rust
- *   Carbonic maceration → dusty rose-berry (winey, fruity-funky)
- *   Wet hulling     → moss green (earthy/herbal);  Other → warm taupe */
+ *   Honey → honeyed gold ;  Anaerobic honey → rust orange
+ *   Wet hulling     → brown (= Tanat's slice);  Other → warm taupe */
 const PROCESS_COLORS = {
-  'Washed': '#6f9e6a',
-  'Anaerobic washed': '#4f9e86',
+  'Washed': '#8f8a52',
+  'Anaerobic washed': '#6f7d43',
   'Natural': '#c15a3c',
   'Anaerobic natural': '#8a4a63',
   'Honey': '#d99a3c',
   'Anaerobic honey': '#c2703a',
-  'Wet hulling': '#6d7a45',
+  'Wet hulling': '#8a5a3c',
   'Other': '#a08c72',
 };
 // Warm, brown-friendly palette for the non-process pies (roaster, country).
-// Deliberately starts on terracotta (not green) and leans on browns/ambers so
-// it sits with the coffee theme. A couple more brown tones than the process set.
-const PIE_PALETTE = ['#c15a3c', '#d9a441', '#8a5a3c', '#a85072', '#b3742e', '#6f7d43', '#7d5240', '#8f8a52', '#a08c72', '#5e4632'];
+// Starts on terracotta (not green) and leans on browns/ambers to sit with the
+// coffee theme. Index 6 is a muted plum (was a second brown too close to #8a5a3c).
+const PIE_PALETTE = ['#c15a3c', '#d9a441', '#8a5a3c', '#a85072', '#b3742e', '#6f7d43', '#7d4f66', '#8f8a52', '#a08c72', '#5e4632'];
 function pieColor(label, i, colorMap) {
   if (colorMap && colorMap[label]) return colorMap[label];
   return PIE_PALETTE[i % PIE_PALETTE.length];
@@ -494,7 +494,7 @@ function countBy(arr) { const m = new Map(); arr.filter(Boolean).forEach((k) => 
 function groupSmall(rows, min) {
   const big = rows.filter((r) => r.value >= min);
   const rest = rows.filter((r) => r.value < min).reduce((s, r) => s + r.value, 0);
-  return rest > 0 ? big.concat([{ label: 'Others', value: rest }]) : big;
+  return rest > 0 ? big.concat([{ label: 'Other', value: rest }]) : big;
 }
 function avgByBeans(field) {
   const m = new Map();

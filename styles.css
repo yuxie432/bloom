@@ -150,6 +150,9 @@ textarea { resize: vertical; min-height: 70px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .section-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--brand-2); font-weight: 700; margin: 6px 0 -4px; }
 #statsBody .section-label { margin: 22px 0 12px; }
+/* Stats has no pager, so add clearance equivalent to one so the last chart
+   isn't hidden behind the fixed bottom nav bar. */
+#statsBody { display: block; padding-bottom: 84px; }
 
 /* Star rating input */
 .rating { display: flex; gap: 4px; }
