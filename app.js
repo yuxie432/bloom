@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=20';
+} from './db.js?v=23';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=20';
+} from './sync.js?v=23';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -432,10 +432,10 @@ function renderStats() {
     ${pieBlock('Country mix (by packs)', groupSmall(beanCountryCounts, 3))}
     ${pieBlock('Process mix (by packs)', beanProcessCounts, PROCESS_COLORS)}
     ${pieBlock('Roaster mix (by packs)', beanRoasterCounts)}
-    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (by packs, ≥3)', vr) : ''; })()}
-    ${countryRatings.length ? barBlock('Average rating by country (>2 packs)', countryRatings, 5) : ''}
+    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (≥3 packs)', vr) : ''; })()}
+    ${countryRatings.length ? barBlock('Average rating by country (≥3 packs)', countryRatings, 5) : ''}
     ${processRatings.length ? barBlock('Average rating by process', processRatings, 5) : ''}
-    ${roasterRatings.length ? barBlock('Average rating by roaster (>2 packs)', roasterRatings, 5) : ''}
+    ${roasterRatings.length ? barBlock('Average rating by roaster (≥3 packs)', roasterRatings, 5) : ''}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
