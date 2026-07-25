@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=23';
+} from './db.js?v=25';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=23';
+} from './sync.js?v=25';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -379,10 +379,15 @@ function renderStats() {
   }
   const now = new Date();
 
+  // Past 12 FULL months — i.e. the 12 completed months before the current one
+  // (current, in-progress month excluded). Build the YYYY-MM key from LOCAL
+  // year/month — never toISOString(), which shifts to UTC and rolls the 1st of
+  // the month back a month in UTC+ timezones. Recomputed from `now` on every
+  // render, so the window advances automatically into each new month.
   const months = [];
-  for (let i = 11; i >= 0; i--) {
+  for (let i = 12; i >= 1; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(d.toISOString().slice(0, 7));
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
   const perMonth = months.map((m) => ({ label: monthLabel(m), value: brews.filter((x) => (x.date || '').startsWith(m)).length }));
 
@@ -432,7 +437,7 @@ function renderStats() {
     ${pieBlock('Country mix (by packs)', groupSmall(beanCountryCounts, 3))}
     ${pieBlock('Process mix (by packs)', beanProcessCounts, PROCESS_COLORS)}
     ${pieBlock('Roaster mix (by packs)', beanRoasterCounts)}
-    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (≥3 packs)', vr) : ''; })()}
+    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal count (by packs)', vr) : ''; })()}
     ${countryRatings.length ? barBlock('Average rating by country (≥3 packs)', countryRatings, 5) : ''}
     ${processRatings.length ? barBlock('Average rating by process', processRatings, 5) : ''}
     ${roasterRatings.length ? barBlock('Average rating by roaster (≥3 packs)', roasterRatings, 5) : ''}
