@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=25';
+} from './db.js?v=26';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=25';
+} from './sync.js?v=26';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -241,10 +241,9 @@ function renderBrews() {
 function brewCard(x) {
   const bean = beans.find((b) => b.id === x.beanId);
   const total = x.waterMass || (x.tech && x.tech.totalWater) || null;
-  const ratio = x.dose && total ? `1:${(total / x.dose).toFixed(1)}` : null;
   const meta = [
-    x.dose ? `${x.dose} g` : null, total ? `${total} g water` : null, ratio,
-    x.waterTemp ? `${x.waterTemp}°C` : null, x.technique || null, x.device || null,
+    x.dose ? `${x.dose} g` : null, total ? `${total} g water` : null,
+    x.waterTemp ? `${x.waterTemp}°C` : null, x.device || null, x.technique || null,
   ].filter(Boolean);
   return `
     <div class="card" data-edit="brews" data-id="${x.id}">
@@ -253,7 +252,7 @@ function brewCard(x) {
           <div class="title">${esc(beanLabel(bean))}</div>
           <div class="sub">${esc(x.date || '')}${x.grind != null ? ` · grind ${esc(x.grind)}` : ''}${x.grinder ? ` · ${esc(x.grinder)}` : ''}</div>
         </div>
-        ${starStr(x.rating, true)}
+        ${x.rating ? `<div class="brew-score" aria-label="rating">${x.rating}</div>` : ''}
       </div>
       <div class="meta">${meta.map((m) => `<span class="pill">${esc(m)}</span>`).join('')}</div>
       ${x.flavorNotes ? `<div class="sub" style="margin-top:8px">“${esc(x.flavorNotes)}”</div>` : ''}
@@ -280,7 +279,7 @@ function beanCard(b) {
   const status = c.finished
     ? `<span class="tag-done">Finished</span>`
     : (c.remaining != null ? `<span class="pill strong">${c.remaining} g left</span>` : '');
-  const meta = [b.originCountry, b.originRegion, b.process, ...varList(b.varietal), b.roastLevel].filter(Boolean);
+  const meta = [b.originCountry, b.originRegion, b.process, ...varList(b.varietal)].filter(Boolean);
   return `
     <div class="card bean-card" data-detail="${b.id}">
       <div class="bean-top">
@@ -355,7 +354,7 @@ function brewMiniRow(x) {
   const total = x.waterMass || (x.tech && x.tech.totalWater) || null;
   const ratio = x.dose && total ? `1:${(total / x.dose).toFixed(1)}` : '';
   const sub = [
-    x.grind != null ? `grind ${x.grind}` : null,
+    x.grind != null ? `${x.grind}` : null,
     x.waterTemp ? `${x.waterTemp}°C` : null,
     x.device || null, ratio,
   ].filter(Boolean).join(' · ');

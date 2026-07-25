@@ -85,6 +85,8 @@ button.danger { background: var(--bad); color: #fff; }
 .stars .halfstar { position: relative; display: inline-block; color: var(--line); }
 .stars .halfstar::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; height: 100%; overflow: hidden; color: var(--accent); }
 .rval { color: var(--muted); font-weight: 700; }
+/* Brew card: numeric score only (no stars) so the bean title gets full width. */
+.brew-score { flex-shrink: 0; font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1; }
 .pill.strong { background: #e5efe6; color: var(--good); }
 .tag-done {
   display: inline-block; background: #eceae7; color: var(--muted);
