@@ -3,8 +3,11 @@
  * ========================================================================= */
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
-  getSettings, saveSettings, clearAll,
-} from './db.js?v=10';
+  getSettings, saveSettings, commitSettings, clearAll,
+} from './db.js?v=12';
+import {
+  startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
+} from './sync.js?v=12';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -310,8 +313,6 @@ function renderStats() {
     return;
   }
   const now = new Date();
-  const ym = now.toISOString().slice(0, 7);
-  const cupsThisMonth = brews.filter((x) => (x.date || '').startsWith(ym)).length;
 
   const months = [];
   for (let i = 11; i >= 0; i--) {
@@ -339,31 +340,24 @@ function renderStats() {
   // avg per gram = money spent / total mass of beans purchased (bag content masses)
   const massPurchased = priced.reduce((s, b) => s + (b.mass || 0), 0);
   const perGram = massPurchased ? totalSpend / massPurchased : null;
-  const perCup = brews.length ? totalSpend / brews.length : null;
 
   const beanScores = beans.map((b) => ({ label: beanLabel(b), avg: beanOverall(b) }))
     .filter((b) => b.avg != null).sort((a, b) => b.avg - a.avg).slice(0, 8);
 
   el.innerHTML = `
     <div class="stat-cards">
-      <div class="stat"><div class="num">${brews.length}</div><div class="lbl">total brews</div></div>
-      <div class="stat"><div class="num">${cupsThisMonth}</div><div class="lbl">cups this month</div></div>
-      <div class="stat"><div class="num">${beans.length}</div><div class="lbl">beans logged</div></div>
-      <div class="stat"><div class="num">${active.length}</div><div class="lbl">bags open</div></div>
-    </div>
-
-    <div class="section-label">Stock &amp; spend</div>
-    <div class="stat-cards">
       <div class="stat"><div class="num">${stockG} g</div><div class="lbl">coffee in stock</div></div>
+      <div class="stat"><div class="num">${active.length}</div><div class="lbl">packs open</div></div>
+      <div class="stat"><div class="num">${brews.length}</div><div class="lbl">total brews</div></div>
+      <div class="stat"><div class="num">${beans.length}</div><div class="lbl">beans logged</div></div>
       <div class="stat"><div class="num">${money(Math.round(totalSpend))}</div><div class="lbl">total spent</div></div>
-      <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">avg per gram</div></div>
-      <div class="stat"><div class="num">${perCup != null ? '¥' + perCup.toFixed(2) : '—'}</div><div class="lbl">avg per cup</div></div>
+      <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">average per gram</div></div>
     </div>
 
-    ${pieBlock('Process mix', beanProcessCounts)}
-    ${pieBlock('Roaster mix', beanRoasterCounts)}
-    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (packs, ≥3)', vr) : ''; })()}
-    ${processRatings.length ? barBlock('Avg rating by process', processRatings, 5) : ''}
+    ${pieBlock('Process mix (by packs)', beanProcessCounts)}
+    ${pieBlock('Roaster mix (by packs)', beanRoasterCounts)}
+    ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (by packs, ≥3)', vr) : ''; })()}
+    ${processRatings.length ? barBlock('Average rating by process', processRatings, 5) : ''}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
@@ -638,8 +632,15 @@ async function deleteCurrent() {
  * ========================================================================= */
 function openMenu() {
   editing = { store: null, record: null };
+  const u = currentUser();
+  const authRow = u
+    ? `<button type="button" data-menu="signout">Cloud sync · on
+        <span class="desc">Signed in as ${esc(u.email || 'your account')}. Beans &amp; brews sync across your devices. Tap to sign out.</span></button>`
+    : `<button type="button" data-menu="signin">Sign in to sync (Google)
+        <span class="desc">Sync your beans &amp; brews across your iPhone and laptop.</span></button>`;
   $('#modalForm').innerHTML = `
     <div class="menu-list">
+      ${authRow}
       <button type="button" data-menu="settings">Equipment &amp; option lists
         <span class="desc">Edit grinders, devices, papers, roasters, countries, varietals, and defaults.</span></button>
       <button type="button" data-menu="export">Export backup (.json)
@@ -693,7 +694,7 @@ async function saveSettingsForm() {
     grinder: fd.get('d_grinder') || '', device: fd.get('d_device') || '', paper: fd.get('d_paper') || '',
     technique: fd.get('d_technique') || '', dose: num(fd.get('d_dose')), waterTemp: num(fd.get('d_waterTemp')),
   };
-  await saveSettings(settings);
+  await commitSettings(settings);
   closeModal(); toast('Settings saved');
 }
 function handleSettingsClick(e) {
@@ -702,6 +703,29 @@ function handleSettingsClick(e) {
   const add = e.target.closest('[data-add-btn]');
   if (add) { const k = add.dataset.addBtn; const inp = $(`[data-add-input="${k}"]`); const v = inp.value.trim(); if (v && !settings[k].includes(v)) settings[k].push(v); settingsForm(); return true; }
   return false;
+}
+
+/* ---------- Cloud sync ---------- */
+async function doSignIn() {
+  try {
+    toast('Opening Google sign-in…');
+    await signInGoogle();
+    // On success onAuthStateChanged runs the initial sync + re-render.
+    // (On mobile this may redirect away and return signed in.)
+    toast('Signed in — syncing ☁️');
+    closeModal();
+  } catch (err) {
+    toast(err?.message || 'Sign-in failed');
+  }
+}
+async function doSignOut() {
+  try {
+    await signOutUser();
+    toast('Signed out. Data stays on this device.');
+    closeModal();
+  } catch (err) {
+    toast(err?.message || 'Sign-out failed');
+  }
 }
 
 /* ---------- Backup / restore ---------- */
@@ -721,6 +745,8 @@ function doImport() {
       const data = JSON.parse(await file.text());
       const res = await importAll(data, 'merge');
       settings = await getSettings();
+      // Imported records are written raw, so push them up if signed in.
+      if (currentUser()) { try { await resync(); } catch (e) { /* best-effort */ } }
       await reload(); closeModal();
       toast(`Imported ${res.beans} beans, ${res.brews} brews`);
     } catch (err) { toast(err.message || 'Import failed'); }
@@ -730,6 +756,8 @@ function doImport() {
 async function eraseAll() {
   if (!confirm('Erase ALL data on this device — every bean, brew and setting?\n\nThis cannot be undone. (You can re-import a backup afterwards.)')) return;
   if (!confirm('Are you absolutely sure? This wipes everything.')) return;
+  // If synced, wipe the cloud copy first so it doesn't just download again.
+  if (currentUser()) { try { await wipeRemote(); } catch (e) { /* best-effort */ } }
   await clearAll();
   settings = await getSettings();   // back to seeded defaults
   await saveSettings(settings);
@@ -817,6 +845,8 @@ function wireEvents() {
     if (vdel) { vdel.closest('.chip').remove(); return; }
 
     const menu = e.target.closest('[data-menu]')?.dataset.menu;
+    if (menu === 'signin') return doSignIn();
+    if (menu === 'signout') return doSignOut();
     if (menu === 'settings') return settingsForm();
     if (menu === 'export') return doExport();
     if (menu === 'import') return doImport();
@@ -835,6 +865,14 @@ async function init() {
   settings = await getSettings();
   await saveSettings(settings);
   await reload();
+
+  // Start cloud sync. Harmless if you never sign in; if a session is already
+  // saved it restores it, merges the cloud copy, and keeps things live.
+  startSync({
+    onChange: async () => { settings = await getSettings(); await reload(); },
+    onAuth: () => { /* menu re-reads currentUser() when opened */ },
+  }).catch((e) => console.warn('sync unavailable', e));
+
   // This build runs without a service worker so code is always fresh from the
   // network. Proactively remove any previously-installed worker + its caches.
   if ('serviceWorker' in navigator) {
