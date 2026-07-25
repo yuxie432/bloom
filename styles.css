@@ -66,7 +66,7 @@ button.danger { background: var(--bad); color: #fff; }
   padding: 14px; box-shadow: var(--shadow); cursor: pointer;
 }
 .card:active { transform: scale(.995); }
-.card .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card .row1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .card .title { font-weight: 650; font-size: 16px; }
 .card .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .card .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -74,11 +74,16 @@ button.danger { background: var(--bad); color: #fff; }
   background: #f0e8dd; color: var(--brand); border-radius: 999px;
   padding: 3px 9px; font-size: 12px; font-weight: 600;
 }
-.stars { color: var(--accent); font-size: 15px; white-space: nowrap; }
+/* Rating = stars + number on one aligned line; number matches star size. */
+.rating-line { display: inline-flex; align-items: center; gap: 6px; line-height: 1; }
+.rating-line .stars, .rating-line .rval { font-size: 17px; }
+.rating-line.big .stars, .rating-line.big .rval { font-size: 20px; }
+.rating-line .unrated { color: var(--muted); font-size: 14px; }
+.stars { color: var(--accent); white-space: nowrap; line-height: 1; }
 .stars .emptystar { color: var(--line); }
 .stars .halfstar { position: relative; color: var(--line); }
 .stars .halfstar::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; overflow: hidden; color: var(--accent); }
-.rval { font-size: 12px; color: var(--muted); font-weight: 600; }
+.rval { color: var(--muted); font-weight: 700; }
 .pill.strong { background: #e5efe6; color: var(--good); }
 .tag-done {
   display: inline-block; background: #eceae7; color: var(--muted);
@@ -186,7 +191,6 @@ textarea { resize: vertical; min-height: 70px; }
 .add-row input { flex: 1; }
 
 /* Prominent bean rating */
-.stars.big { font-size: 20px; }
 .bean-card .bean-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .bean-card .bean-rating { flex-shrink: 0; }
 .bean-card .title { font-size: 16px; }

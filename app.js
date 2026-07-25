@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=14';
+} from './db.js?v=15';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=14';
+} from './sync.js?v=15';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -101,14 +101,15 @@ const num = (v) => (v === '' || v == null || isNaN(+v) ? null : +v);
 const varList = (v) => (Array.isArray(v) ? v : (v ? String(v).split(/[,、]/).map((x) => x.trim()).filter(Boolean) : []));
 
 function starStr(r, big) {
-  if (!r) return '<span style="color:var(--muted)">unrated</span>';
-  let h = `<span class="stars${big ? ' big' : ''}">`;
+  const cls = `rating-line${big ? ' big' : ''}`;
+  if (!r) return `<span class="${cls}"><span class="unrated">unrated</span></span>`;
+  let h = `<span class="${cls}"><span class="stars">`;
   for (let i = 1; i <= 5; i++) {
     if (r >= i) h += '★';
     else if (r >= i - 0.5) h += '<span class="halfstar">★</span>';
     else h += '<span class="emptystar">★</span>';
   }
-  return h + `</span> <span class="rval">${(+r).toFixed(1)}</span>`;
+  return h + `</span><span class="rval">${(+r).toFixed(1)}</span></span>`;
 }
 function toast(msg) {
   const t = $('#toast');
@@ -168,6 +169,46 @@ function optionPool(settingsKey, field, isArray) {
   });
   return [...pool].sort((a, b) => a.localeCompare(b));
 }
+/* Per-value usage stats for a bean field: how many packs use it + avg rating. */
+function usageStats(field, isArray) {
+  const stats = new Map();
+  const ensure = (k) => { if (!stats.has(k)) stats.set(k, { count: 0, rs: 0, rn: 0 }); return stats.get(k); };
+  beans.forEach((b) => {
+    const r = beanOverall(b);
+    const vals = isArray ? varList(b[field]) : (b[field] ? [String(b[field]).trim()] : []);
+    vals.forEach((val) => { const o = ensure(val); o.count += 1; if (r != null) { o.rs += r; o.rn += 1; } });
+  });
+  return stats;
+}
+/* Sort values by pack frequency desc, then avg rating desc, then alphabetical. */
+function rankedSort(values, field, isArray) {
+  const stats = usageStats(field, isArray);
+  const rank = (k) => { const o = stats.get(k); return { count: o ? o.count : 0, avg: (o && o.rn) ? o.rs / o.rn : -1 }; };
+  return [...values].sort((a, b) => {
+    const A = rank(a), B = rank(b);
+    if (B.count !== A.count) return B.count - A.count;
+    if (B.avg !== A.avg) return B.avg - A.avg;
+    return a.localeCompare(b);
+  });
+}
+/* Like optionPool but ordered by usage (for record dropdowns + management lists). */
+function optionPoolRanked(settingsKey, field, isArray) {
+  const pool = new Set(settings[settingsKey] || []);
+  beans.forEach((b) => {
+    const v = b[field];
+    if (!v) return;
+    if (isArray) varList(v).forEach((x) => x && pool.add(x));
+    else pool.add(String(v).trim());
+  });
+  return rankedSort([...pool], field, isArray);
+}
+// Which managed lists rank by usage, and their bean field + array-ness.
+const RANKED_LISTS = {
+  roasters: ['roaster', false],
+  countries: ['originCountry', false],
+  varietals: ['varietal', true],
+  processes: ['process', false],
+};
 
 /* =========================================================================
  * RENDER — brews (paginated)
@@ -199,7 +240,7 @@ function brewCard(x) {
           <div class="title">${esc(beanLabel(bean))}</div>
           <div class="sub">${esc(x.date || '')}${x.grind != null ? ` · grind ${esc(x.grind)}` : ''}${x.grinder ? ` · ${esc(x.grinder)}` : ''}</div>
         </div>
-        ${starStr(x.rating)}
+        ${starStr(x.rating, true)}
       </div>
       <div class="meta">${meta.map((m) => `<span class="pill">${esc(m)}</span>`).join('')}</div>
       ${x.flavorNotes ? `<div class="sub" style="margin-top:8px">“${esc(x.flavorNotes)}”</div>` : ''}
@@ -335,6 +376,7 @@ function renderStats() {
   // pie charts count packs of beans (not brews)
   const beanProcessCounts = countBy(beans.map((b) => b.process));
   const beanRoasterCounts = countBy(beans.map((b) => b.roaster));
+  const beanCountryCounts = countBy(beans.map((b) => b.originCountry));
   const beanVarietalCounts = countBy(beans.flatMap((b) => varList(b.varietal)));
   const techniqueCounts = countBy(brews.map((x) => x.technique));
   const deviceCounts = countBy(brews.map((x) => x.device));
@@ -364,14 +406,15 @@ function renderStats() {
     <div class="stat-cards">
       <div class="stat"><div class="num">${stockG} g</div><div class="lbl">coffee in stock</div></div>
       <div class="stat"><div class="num">${active.length}</div><div class="lbl">packs open</div></div>
-      <div class="stat"><div class="num">${brews.length}</div><div class="lbl">total brews</div></div>
       <div class="stat"><div class="num">${consumedTotal} g</div><div class="lbl">beans consumed</div></div>
+      <div class="stat"><div class="num">${brews.length}</div><div class="lbl">total brews</div></div>
       <div class="stat"><div class="num">${money(Math.round(totalSpend))}</div><div class="lbl">total spent</div></div>
       <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">average per gram</div></div>
     </div>
 
-    ${pieBlock('Process mix (by packs)', beanProcessCounts)}
+    ${pieBlock('Process mix (by packs)', beanProcessCounts, PROCESS_COLORS)}
     ${pieBlock('Roaster mix (by packs)', beanRoasterCounts)}
+    ${pieBlock('Country mix (by packs)', beanCountryCounts)}
     ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (by packs, ≥3)', vr) : ''; })()}
     ${processRatings.length ? barBlock('Average rating by process', processRatings, 5) : ''}
     ${barBlock('Cups per month', perMonth)}
@@ -389,15 +432,41 @@ function barBlock(title, rows, max) {
       <div class="bv">${r.value}</div></div>`).join('');
   return `<div class="chart-block"><h4>${esc(title)}</h4>${body}</div>`;
 }
-const PIE_COLORS = ['#6f4e37', '#a9744f', '#c98a3d', '#8a9a5b', '#c25a4d', '#4c9a5b', '#7d6b9e', '#d0a15c', '#5b8aa9', '#b0855b'];
-function pieBlock(title, rows) {
+/* Process colours chosen to hint at cup character:
+ *   Washed          → clean teal-blue (clarity, floral)
+ *   Anaerobic washed→ bright aqua (even more clarity / exotic)
+ *   Natural         → ripe red (fruity, jammy)
+ *   Anaerobic natural→ wine plum (fermented / boozy / winey)
+ *   Honey / Black honey / Anaerobic honey → honeyed golds & amber
+ *   Carbonic maceration → magenta-berry (winey, fruity-funky)
+ *   Wet hulling     → earthy herbal green;  Other → neutral coffee brown */
+const PROCESS_COLORS = {
+  'Washed': '#5fb0c6',
+  'Anaerobic washed': '#33c6cc',
+  'Natural': '#d1483f',
+  'Anaerobic natural': '#8c3a67',
+  'Honey': '#e3aa3c',
+  'Black honey': '#9c6b2e',
+  'Anaerobic honey': '#cf7a3a',
+  'Anaerobic fermentation washed': '#7d70cc',
+  'Carbonic maceration': '#bb3f80',
+  'Wet hulling': '#7d8a48',
+  'Other': '#8a7360',
+};
+// Ordered palette (adjacent-contrast) reused by non-process pies (roaster, country).
+const PIE_PALETTE = ['#5fb0c6', '#d1483f', '#e3aa3c', '#7d8a48', '#8c3a67', '#33c6cc', '#cf7a3a', '#7d70cc', '#bb3f80', '#9c6b2e', '#8a7360'];
+function pieColor(label, i, colorMap) {
+  if (colorMap && colorMap[label]) return colorMap[label];
+  return PIE_PALETTE[i % PIE_PALETTE.length];
+}
+function pieBlock(title, rows, colorMap) {
   rows = rows.filter((r) => r.value > 0).sort((a, b) => b.value - a.value);
   if (!rows.length) return '';
   if (rows.length > 8) { const rest = rows.slice(7).reduce((s, r) => s + r.value, 0); rows = rows.slice(0, 7).concat([{ label: 'Other', value: rest }]); }
   const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   let acc = 0;
-  const stops = rows.map((r, i) => { const a = acc / total * 360; acc += r.value; const b = acc / total * 360; return `${PIE_COLORS[i % PIE_COLORS.length]} ${a}deg ${b}deg`; }).join(', ');
-  const legend = rows.map((r, i) => `<div class="leg"><span class="sw" style="background:${PIE_COLORS[i % PIE_COLORS.length]}"></span>${esc(r.label)} <b>${r.value}</b></div>`).join('');
+  const stops = rows.map((r, i) => { const a = acc / total * 360; acc += r.value; const b = acc / total * 360; return `${pieColor(r.label, i, colorMap)} ${a}deg ${b}deg`; }).join(', ');
+  const legend = rows.map((r, i) => `<div class="leg"><span class="sw" style="background:${pieColor(r.label, i, colorMap)}"></span>${esc(r.label)} <b>${r.value}</b></div>`).join('');
   return `<div class="chart-block"><h4>${esc(title)}</h4><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${legend}</div></div></div>`;
 }
 function countBy(arr) { const m = new Map(); arr.filter(Boolean).forEach((k) => m.set(k, (m.get(k) || 0) + 1)); return [...m.entries()].map(([label, value]) => ({ label, value })); }
@@ -453,8 +522,8 @@ function beanForm(rec = {}) {
 
   $('#modalForm').innerHTML = `
     <div class="grid2">
-      ${field('Roaster', selectInput('roaster', optionPool('roasters', 'roaster', false), rec.roaster || ''))}
-      ${field('Origin country', selectInput('originCountry', optionPool('countries', 'originCountry', false), rec.originCountry || ''))}
+      ${field('Roaster', selectInput('roaster', optionPoolRanked('roasters', 'roaster', false), rec.roaster || ''))}
+      ${field('Origin country', selectInput('originCountry', optionPoolRanked('countries', 'originCountry', false), rec.originCountry || ''))}
     </div>
     <div class="grid2">
       ${field('Region / area', textInput('originRegion', rec.originRegion, 'e.g. Sidama Bensa'))}
@@ -464,12 +533,12 @@ function beanForm(rec = {}) {
 
     <div class="section-label">Varietals</div>
     <div class="msel-chips" id="vchips">${selectedVar.map(varChip).join('')}</div>
-    <div class="add-row"><select data-vadd><option value="">+ add varietal…</option>${optionPool('varietals', 'varietal', true).filter((v) => !selectedVar.includes(v)).map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>
+    <div class="add-row"><select data-vadd><option value="">+ add varietal…</option>${optionPoolRanked('varietals', 'varietal', true).filter((v) => !selectedVar.includes(v)).map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>
     <div class="field-hint">Add or rename options centrally in ⋮ → Equipment &amp; options.</div>
 
     <div class="grid2">
       ${field('Roast level', selectInput('roastLevel', ROAST_LEVELS, rec.roastLevel))}
-      ${field('Process', selectInput('process', optionPool('processes', 'process', false), rec.process))}
+      ${field('Process', selectInput('process', optionPoolRanked('processes', 'process', false), rec.process))}
     </div>
     <div class="grid2">
       ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number'))}
@@ -673,10 +742,14 @@ function openMenu() {
 }
 function settingsForm() {
   const d = settings.defaults || {};
-  const listEditor = (kind, label) => `
+  const listEditor = (kind, label) => {
+    const raw = settings[kind] || [];
+    const vals = RANKED_LISTS[kind] ? rankedSort(raw, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : raw;
+    return `
     <div class="section-label">${label}</div>
-    <div class="chips" data-list="${kind}">${(settings[kind] || []).map((v) => `<span class="chip">${esc(v)}<button type="button" data-del-chip="${esc(v)}" data-kind="${kind}">✕</button></span>`).join('')}</div>
+    <div class="chips" data-list="${kind}">${vals.map((v) => `<span class="chip">${esc(v)}<button type="button" data-del-chip="${esc(v)}" data-kind="${kind}">✕</button></span>`).join('')}</div>
     <div class="add-row"><input type="text" data-add-input="${kind}" placeholder="Add ${label.toLowerCase().replace(/s$/, '')}..." /><button type="button" class="ghost" data-add-btn="${kind}">Add</button></div>`;
+  };
   $('#modalForm').innerHTML = `
     ${listEditor('grinders', 'Grinders')}
     ${listEditor('devices', 'Devices')}
