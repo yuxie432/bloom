@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=16';
+} from './db.js?v=18';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=16';
+} from './sync.js?v=18';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -22,7 +22,7 @@ const TASTE_AXES = [
 const ROAST_LEVELS = ['Very light', 'Light', 'Medium-light', 'Medium', 'Medium-dark', 'Dark'];
 const PROCESS_METHODS = [
   'Washed', 'Natural', 'Honey', 'Anaerobic natural', 'Anaerobic washed',
-  'Anaerobic honey', 'Anaerobic fermentation washed', 'Carbonic maceration', 'Wet hulling', 'Other',
+  'Anaerobic honey', 'Wet hulling', 'Other',
 ];
 
 /* ---------- Brew-technique templates (English) ----------
@@ -211,7 +211,7 @@ const RANKED_LISTS = {
 // Processes use a fixed progression, not usage ranking. Anything not listed
 // (e.g. later additions) falls to the end, alphabetically, with Other last.
 const PROCESS_ORDER = ['Washed', 'Honey', 'Natural', 'Anaerobic washed', 'Anaerobic honey',
-  'Anaerobic natural', 'Wet hulling', 'Anaerobic fermentation washed', 'Carbonic maceration', 'Other'];
+  'Anaerobic natural', 'Wet hulling', 'Other'];
 function orderByProcess(values) {
   const idx = (v) => { const i = PROCESS_ORDER.indexOf(v); return i === -1 ? PROCESS_ORDER.length : i; };
   return [...values].sort((a, b) => { const d = idx(a) - idx(b); return d !== 0 ? d : a.localeCompare(b); });
@@ -387,7 +387,10 @@ function renderStats() {
   const perMonth = months.map((m) => ({ label: monthLabel(m), value: brews.filter((x) => (x.date || '').startsWith(m)).length }));
 
   // pie charts count packs of beans (not brews)
-  const beanProcessCounts = countBy(beans.map((b) => b.process));
+  // Ordered by the fixed process progression so pieBlock's stable value-desc
+  // sort breaks pack-count ties by that order (e.g. wet hulling falls last).
+  const pIdx = (l) => { const i = PROCESS_ORDER.indexOf(l); return i === -1 ? PROCESS_ORDER.length : i; };
+  const beanProcessCounts = countBy(beans.map((b) => b.process)).sort((a, b) => pIdx(a.label) - pIdx(b.label));
   const beanRoasterCounts = countBy(beans.map((b) => b.roaster));
   const beanCountryCounts = countBy(beans.map((b) => b.originCountry));
   const beanVarietalCounts = countBy(beans.flatMap((b) => varList(b.varietal)));
@@ -461,21 +464,25 @@ const PROCESS_COLORS = {
   'Anaerobic natural': '#8a4a63',
   'Honey': '#d99a3c',
   'Anaerobic honey': '#c2703a',
-  'Anaerobic fermentation washed': '#8f8a52',
-  'Carbonic maceration': '#a85072',
   'Wet hulling': '#6d7a45',
   'Other': '#a08c72',
 };
-// Ordered palette (adjacent-contrast, all earthy) for non-process pies (roaster, country).
-const PIE_PALETTE = ['#6f9e6a', '#c15a3c', '#d99a3c', '#6d7a45', '#8a4a63', '#4f9e86', '#c2703a', '#8f8a52', '#a85072', '#a08c72'];
+// Warm, brown-friendly palette for the non-process pies (roaster, country).
+// Deliberately starts on terracotta (not green) and leans on browns/ambers so
+// it sits with the coffee theme. A couple more brown tones than the process set.
+const PIE_PALETTE = ['#c15a3c', '#d9a441', '#8a5a3c', '#a85072', '#b3742e', '#6f7d43', '#7d5240', '#8f8a52', '#a08c72', '#5e4632'];
 function pieColor(label, i, colorMap) {
   if (colorMap && colorMap[label]) return colorMap[label];
   return PIE_PALETTE[i % PIE_PALETTE.length];
 }
+const isOtherLabel = (l) => l === 'Other' || l === 'Others';
 function pieBlock(title, rows, colorMap) {
+  // Stable value-desc sort: any pre-existing tiebreak order in `rows` is kept.
   rows = rows.filter((r) => r.value > 0).sort((a, b) => b.value - a.value);
   if (!rows.length) return '';
   if (rows.length > 8) { const rest = rows.slice(7).reduce((s, r) => s + r.value, 0); rows = rows.slice(0, 7).concat([{ label: 'Other', value: rest }]); }
+  // Always park an "Other(s)" bucket at the end, even if it outweighs some slices.
+  rows = rows.sort((a, b) => (isOtherLabel(a.label) ? 1 : 0) - (isOtherLabel(b.label) ? 1 : 0));
   const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   let acc = 0;
   const stops = rows.map((r, i) => { const a = acc / total * 360; acc += r.value; const b = acc / total * 360; return `${pieColor(r.label, i, colorMap)} ${a}deg ${b}deg`; }).join(', ');

@@ -17,8 +17,8 @@
  * project. Access is gated by Firebase Auth + Firestore security rules.
  * ========================================================================= */
 
-import { getAll, get, putRaw, removeRaw, getSettings } from './db.js?v=16';
-import { setSyncHooks } from './db.js?v=16';
+import { getAll, get, putRaw, removeRaw, getSettings } from './db.js?v=18';
+import { setSyncHooks } from './db.js?v=18';
 
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyDwRsrUNjhPnkngRPaNU7E_IjfXk9eSVgA',
