@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=26';
+} from './db.js?v=27';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=26';
+} from './sync.js?v=27';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -241,9 +241,9 @@ function renderBrews() {
 function brewCard(x) {
   const bean = beans.find((b) => b.id === x.beanId);
   const total = x.waterMass || (x.tech && x.tech.totalWater) || null;
+  const ratio = x.dose && total ? `1:${(total / x.dose).toFixed(1)}` : null;
   const meta = [
-    x.dose ? `${x.dose} g` : null, total ? `${total} g water` : null,
-    x.waterTemp ? `${x.waterTemp}°C` : null, x.device || null, x.technique || null,
+    ratio, x.waterTemp ? `${x.waterTemp}°C` : null, x.device || null, x.technique || null,
   ].filter(Boolean);
   return `
     <div class="card" data-edit="brews" data-id="${x.id}">
@@ -355,8 +355,9 @@ function brewMiniRow(x) {
   const ratio = x.dose && total ? `1:${(total / x.dose).toFixed(1)}` : '';
   const sub = [
     x.grind != null ? `${x.grind}` : null,
+    ratio,
     x.waterTemp ? `${x.waterTemp}°C` : null,
-    x.device || null, ratio,
+    x.device || null,
   ].filter(Boolean).join(' · ');
   return `<div class="minirow" data-mini="${x.id}">
     <div class="mr-l">
