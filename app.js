@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=19';
+} from './db.js?v=20';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=19';
+} from './sync.js?v=20';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -397,9 +397,13 @@ function renderStats() {
   const techniqueCounts = countBy(brews.map((x) => x.technique));
   const deviceCounts = countBy(brews.map((x) => x.device));
 
-  const processRatings = avgByBeans('process')
+  const ratingBar = (field, minPacks = 0) => avgByBeans(field)
+    .filter((r) => r.n > minPacks)
     .sort((a, b) => b.avg - a.avg)
     .map((p) => ({ label: p.label, value: +p.avg.toFixed(1) }));
+  const processRatings = ratingBar('process');
+  const countryRatings = ratingBar('originCountry', 2);   // > 2 packs recorded
+  const roasterRatings = ratingBar('roaster', 2);         // > 2 packs recorded
 
   // stock + price
   const active = beans.filter((b) => !beanConsumption(b).finished);
@@ -415,9 +419,6 @@ function renderStats() {
   // summing brew doses, since some brews weren't logged)
   const consumedTotal = Math.max(0, Math.round(totalMassAll - stockG));
 
-  const beanScores = beans.map((b) => ({ label: beanLabel(b), avg: beanOverall(b) }))
-    .filter((b) => b.avg != null).sort((a, b) => b.avg - a.avg).slice(0, 8);
-
   el.innerHTML = `
     <div class="stat-cards">
       <div class="stat"><div class="num">${stockG} g</div><div class="lbl">coffee in stock</div></div>
@@ -428,15 +429,16 @@ function renderStats() {
       <div class="stat"><div class="num">${perGram != null ? '¥' + perGram.toFixed(2) : '—'}</div><div class="lbl">average per gram</div></div>
     </div>
 
+    ${pieBlock('Country mix (by packs)', groupSmall(beanCountryCounts, 3))}
     ${pieBlock('Process mix (by packs)', beanProcessCounts, PROCESS_COLORS)}
     ${pieBlock('Roaster mix (by packs)', beanRoasterCounts)}
-    ${pieBlock('Country mix (by packs)', groupSmall(beanCountryCounts, 3))}
     ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (by packs, ≥3)', vr) : ''; })()}
+    ${countryRatings.length ? barBlock('Average rating by country (>2 packs)', countryRatings, 5) : ''}
     ${processRatings.length ? barBlock('Average rating by process', processRatings, 5) : ''}
+    ${roasterRatings.length ? barBlock('Average rating by roaster (>2 packs)', roasterRatings, 5) : ''}
     ${barBlock('Cups per month', perMonth)}
     ${techniqueCounts.length ? barBlock('Brews by technique', techniqueCounts.sort((a, b) => b.value - a.value)) : ''}
     ${deviceCounts.length ? barBlock('Brews by device', deviceCounts.sort((a, b) => b.value - a.value)) : ''}
-    ${beanScores.length ? barBlock('Top beans (rating)', beanScores.map((b) => ({ label: b.label, value: +b.avg.toFixed(1) })), 5) : ''}
   `;
 }
 function beanField(brew, field) { const b = beans.find((z) => z.id === brew.beanId); return b && b[field] ? b[field] : null; }
