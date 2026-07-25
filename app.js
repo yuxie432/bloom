@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=15';
+} from './db.js?v=16';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=15';
+} from './sync.js?v=16';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -21,7 +21,7 @@ const TASTE_AXES = [
 
 const ROAST_LEVELS = ['Very light', 'Light', 'Medium-light', 'Medium', 'Medium-dark', 'Dark'];
 const PROCESS_METHODS = [
-  'Washed', 'Natural', 'Honey', 'Black honey', 'Anaerobic natural', 'Anaerobic washed',
+  'Washed', 'Natural', 'Honey', 'Anaerobic natural', 'Anaerobic washed',
   'Anaerobic honey', 'Anaerobic fermentation washed', 'Carbonic maceration', 'Wet hulling', 'Other',
 ];
 
@@ -207,8 +207,21 @@ const RANKED_LISTS = {
   roasters: ['roaster', false],
   countries: ['originCountry', false],
   varietals: ['varietal', true],
-  processes: ['process', false],
 };
+// Processes use a fixed progression, not usage ranking. Anything not listed
+// (e.g. later additions) falls to the end, alphabetically, with Other last.
+const PROCESS_ORDER = ['Washed', 'Honey', 'Natural', 'Anaerobic washed', 'Anaerobic honey',
+  'Anaerobic natural', 'Wet hulling', 'Anaerobic fermentation washed', 'Carbonic maceration', 'Other'];
+function orderByProcess(values) {
+  const idx = (v) => { const i = PROCESS_ORDER.indexOf(v); return i === -1 ? PROCESS_ORDER.length : i; };
+  return [...values].sort((a, b) => { const d = idx(a) - idx(b); return d !== 0 ? d : a.localeCompare(b); });
+}
+// Pool of process options (settings list + any used on beans), in fixed order.
+function processPool() {
+  const pool = new Set(settings.processes || []);
+  beans.forEach((b) => { if (b.process) pool.add(String(b.process).trim()); });
+  return orderByProcess([...pool]);
+}
 
 /* =========================================================================
  * RENDER — brews (paginated)
@@ -414,7 +427,7 @@ function renderStats() {
 
     ${pieBlock('Process mix (by packs)', beanProcessCounts, PROCESS_COLORS)}
     ${pieBlock('Roaster mix (by packs)', beanRoasterCounts)}
-    ${pieBlock('Country mix (by packs)', beanCountryCounts)}
+    ${pieBlock('Country mix (by packs)', groupSmall(beanCountryCounts, 3))}
     ${(() => { const vr = beanVarietalCounts.filter((r) => r.value >= 3).sort((a, b) => b.value - a.value); return vr.length ? barBlock('Varietal mix (by packs, ≥3)', vr) : ''; })()}
     ${processRatings.length ? barBlock('Average rating by process', processRatings, 5) : ''}
     ${barBlock('Cups per month', perMonth)}
@@ -432,29 +445,29 @@ function barBlock(title, rows, max) {
       <div class="bv">${r.value}</div></div>`).join('');
   return `<div class="chart-block"><h4>${esc(title)}</h4>${body}</div>`;
 }
-/* Process colours chosen to hint at cup character:
- *   Washed          → clean teal-blue (clarity, floral)
- *   Anaerobic washed→ bright aqua (even more clarity / exotic)
- *   Natural         → ripe red (fruity, jammy)
+/* Process colours — earthy tones that sit with the coffee/brown theme, still
+ * hinting at cup character:
+ *   Washed          → fresh green (clean, floral clarity)
+ *   Anaerobic washed→ jade green (even more clarity / exotic)
+ *   Natural         → terracotta red (fruity, jammy)
  *   Anaerobic natural→ wine plum (fermented / boozy / winey)
- *   Honey / Black honey / Anaerobic honey → honeyed golds & amber
- *   Carbonic maceration → magenta-berry (winey, fruity-funky)
- *   Wet hulling     → earthy herbal green;  Other → neutral coffee brown */
+ *   Honey / Anaerobic honey → honeyed amber & rust
+ *   Carbonic maceration → dusty rose-berry (winey, fruity-funky)
+ *   Wet hulling     → moss green (earthy/herbal);  Other → warm taupe */
 const PROCESS_COLORS = {
-  'Washed': '#5fb0c6',
-  'Anaerobic washed': '#33c6cc',
-  'Natural': '#d1483f',
-  'Anaerobic natural': '#8c3a67',
-  'Honey': '#e3aa3c',
-  'Black honey': '#9c6b2e',
-  'Anaerobic honey': '#cf7a3a',
-  'Anaerobic fermentation washed': '#7d70cc',
-  'Carbonic maceration': '#bb3f80',
-  'Wet hulling': '#7d8a48',
-  'Other': '#8a7360',
+  'Washed': '#6f9e6a',
+  'Anaerobic washed': '#4f9e86',
+  'Natural': '#c15a3c',
+  'Anaerobic natural': '#8a4a63',
+  'Honey': '#d99a3c',
+  'Anaerobic honey': '#c2703a',
+  'Anaerobic fermentation washed': '#8f8a52',
+  'Carbonic maceration': '#a85072',
+  'Wet hulling': '#6d7a45',
+  'Other': '#a08c72',
 };
-// Ordered palette (adjacent-contrast) reused by non-process pies (roaster, country).
-const PIE_PALETTE = ['#5fb0c6', '#d1483f', '#e3aa3c', '#7d8a48', '#8c3a67', '#33c6cc', '#cf7a3a', '#7d70cc', '#bb3f80', '#9c6b2e', '#8a7360'];
+// Ordered palette (adjacent-contrast, all earthy) for non-process pies (roaster, country).
+const PIE_PALETTE = ['#6f9e6a', '#c15a3c', '#d99a3c', '#6d7a45', '#8a4a63', '#4f9e86', '#c2703a', '#8f8a52', '#a85072', '#a08c72'];
 function pieColor(label, i, colorMap) {
   if (colorMap && colorMap[label]) return colorMap[label];
   return PIE_PALETTE[i % PIE_PALETTE.length];
@@ -470,6 +483,12 @@ function pieBlock(title, rows, colorMap) {
   return `<div class="chart-block"><h4>${esc(title)}</h4><div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})"></div><div class="legend">${legend}</div></div></div>`;
 }
 function countBy(arr) { const m = new Map(); arr.filter(Boolean).forEach((k) => m.set(k, (m.get(k) || 0) + 1)); return [...m.entries()].map(([label, value]) => ({ label, value })); }
+// Roll rows with value < min into a single "Others" slice.
+function groupSmall(rows, min) {
+  const big = rows.filter((r) => r.value >= min);
+  const rest = rows.filter((r) => r.value < min).reduce((s, r) => s + r.value, 0);
+  return rest > 0 ? big.concat([{ label: 'Others', value: rest }]) : big;
+}
 function avgByBeans(field) {
   const m = new Map();
   beans.forEach((b) => { const k = b[field], r = beanOverall(b); if (!k || r == null) return; if (!m.has(k)) m.set(k, { s: 0, n: 0 }); const o = m.get(k); o.s += r; o.n += 1; });
@@ -538,7 +557,7 @@ function beanForm(rec = {}) {
 
     <div class="grid2">
       ${field('Roast level', selectInput('roastLevel', ROAST_LEVELS, rec.roastLevel))}
-      ${field('Process', selectInput('process', optionPoolRanked('processes', 'process', false), rec.process))}
+      ${field('Process', selectInput('process', processPool(), rec.process))}
     </div>
     <div class="grid2">
       ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number'))}
@@ -744,7 +763,8 @@ function settingsForm() {
   const d = settings.defaults || {};
   const listEditor = (kind, label) => {
     const raw = settings[kind] || [];
-    const vals = RANKED_LISTS[kind] ? rankedSort(raw, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : raw;
+    const vals = kind === 'processes' ? orderByProcess(raw)
+      : (RANKED_LISTS[kind] ? rankedSort(raw, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : raw);
     return `
     <div class="section-label">${label}</div>
     <div class="chips" data-list="${kind}">${vals.map((v) => `<span class="chip">${esc(v)}<button type="button" data-del-chip="${esc(v)}" data-kind="${kind}">✕</button></span>`).join('')}</div>

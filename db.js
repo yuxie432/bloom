@@ -140,7 +140,7 @@ export const DEFAULT_SETTINGS = {
   roasters: [],
   countries: [],
   varietals: [],
-  processes: ['Washed', 'Natural', 'Honey', 'Black honey', 'Anaerobic natural',
+  processes: ['Washed', 'Natural', 'Honey', 'Anaerobic natural',
     'Anaerobic washed', 'Anaerobic honey', 'Anaerobic fermentation washed',
     'Carbonic maceration', 'Wet hulling', 'Other'],
   defaults: {

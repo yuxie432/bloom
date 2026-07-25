@@ -1,13 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect x="0" y="0" width="512" height="512" fill="#6f4e37"/>
-<circle cx="256" cy="256" r="150" fill="none" stroke="#f3ece1" stroke-width="16"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(0 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(45 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(90 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(135 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(180 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(225 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(270 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<line x1="256" y1="210" x2="256" y2="124" transform="rotate(315 256 256)" stroke="#f3ece1" stroke-width="16" stroke-linecap="round"/>
-<circle cx="256" cy="256" r="30" fill="#c98a3d"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#6f4e37"/><path d="M150 121 L362 121 L256 297 Z" fill="none" stroke="#f3ece1" stroke-width="16" stroke-linejoin="round"/><line x1="180" y1="161" x2="332" y2="161" stroke="#f3ece1" stroke-width="14" stroke-linecap="round"/><path d="M256 323 C233 361 231 383 256 391 C281 383 279 361 256 323 Z" fill="#c98a3d"/></svg>

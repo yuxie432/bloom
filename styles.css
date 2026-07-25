@@ -81,8 +81,8 @@ button.danger { background: var(--bad); color: #fff; }
 .rating-line .unrated { color: var(--muted); font-size: 14px; }
 .stars { color: var(--accent); white-space: nowrap; line-height: 1; }
 .stars .emptystar { color: var(--line); }
-.stars .halfstar { position: relative; color: var(--line); }
-.stars .halfstar::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; overflow: hidden; color: var(--accent); }
+.stars .halfstar { position: relative; display: inline-block; color: var(--line); }
+.stars .halfstar::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; height: 100%; overflow: hidden; color: var(--accent); }
 .rval { color: var(--muted); font-weight: 700; }
 .pill.strong { background: #e5efe6; color: var(--good); }
 .tag-done {
