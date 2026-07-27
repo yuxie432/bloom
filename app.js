@@ -4,10 +4,10 @@
 import {
   getAll, get, put, remove, uid, exportAll, importAll,
   getSettings, saveSettings, commitSettings, clearAll,
-} from './db.js?v=28';
+} from './db.js?v=29';
 import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
-} from './sync.js?v=28';
+} from './sync.js?v=29';
 
 /* ---------- Tasting axes (0–5 sliders) ---------- */
 const TASTE_AXES = [
@@ -574,10 +574,10 @@ function beanForm(rec = {}) {
       ${field('Process', selectInput('process', processPool(), rec.process))}
     </div>
     <div class="grid2">
-      ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number', 'step="0.1" inputmode="decimal"'))}
+      ${field('Mass (g)', textInput('mass', rec.mass, '250', 'number', 'step="any" inputmode="decimal"'))}
       ${field('Price (¥ CNY)', textInput('price', rec.price, '0.00', 'number', 'step="0.01" inputmode="decimal"'))}
     </div>
-    ${field('Mass left (g)', textInput('massLeft', c ? (c.remaining ?? '') : '', 'auto from brews', 'number', 'step="0.1" inputmode="decimal"'), 'Defaults to total − brews used. Type to correct it; clear to reset to auto.')}
+    ${field('Mass left (g)', textInput('massLeft', c ? (c.remaining ?? '') : '', 'auto from brews', 'number', 'step="any" inputmode="decimal"'), 'Defaults to total − brews used. Type to correct it; clear to reset to auto.')}
     ${field('Roast date', textInput('roastDate', rec.roastDate, '', 'date'))}
 
     <div class="section-label">Rating &amp; notes</div>
@@ -624,8 +624,8 @@ function brewForm(rec = {}) {
       ${field('Grind', textInput('grind', rec.grind, '8.5', 'number', 'step="any" inputmode="decimal"'))}
     </div>
     <div class="grid2">
-      ${field('Dose (g)', textInput('dose', cur.dose, '15', 'number', 'step="0.1" inputmode="decimal"'))}
-      ${field('Water temp (°C)', textInput('waterTemp', cur.waterTemp, '92', 'number', 'step="0.1" inputmode="decimal"'))}
+      ${field('Dose (g)', textInput('dose', cur.dose, '15', 'number', 'step="any" inputmode="decimal"'))}
+      ${field('Water temp (°C)', textInput('waterTemp', cur.waterTemp, '92', 'number', 'step="any" inputmode="decimal"'))}
     </div>
     <div class="grid2">
       ${field('Device', selectInput('device', settings.devices, cur.device))}
@@ -660,7 +660,7 @@ function renderTechFields(techKey, values) {
   box.innerHTML = `<div class="grid2">` + t.fields.map(([k, lbl, type]) => {
     const v = values[k] ?? '';
     let inp;
-    if (type === 'num') inp = `<input name="tech_${k}" type="number" step="0.1" inputmode="decimal" value="${esc(v)}" />`;
+    if (type === 'num') inp = `<input name="tech_${k}" type="number" step="any" inputmode="decimal" value="${esc(v)}" />`;
     else if (type === 'time') inp = `<input name="tech_${k}" class="timefield" type="text" inputmode="numeric" value="${esc(v)}" placeholder="m:ss" />`;
     else inp = `<input name="tech_${k}" type="text" value="${esc(v)}" />`;
     return field(lbl, inp);
@@ -802,8 +802,8 @@ function settingsForm() {
       ${field('Technique', selectInput('d_technique', TECH_KEYS, d.technique))}
     </div>
     <div class="grid2">
-      ${field('Dose (g)', textInput('d_dose', d.dose, '15', 'number', 'step="0.1" inputmode="decimal"'))}
-      ${field('Water temp (°C)', textInput('d_waterTemp', d.waterTemp, '92', 'number', 'step="0.1" inputmode="decimal"'))}
+      ${field('Dose (g)', textInput('d_dose', d.dose, '15', 'number', 'step="any" inputmode="decimal"'))}
+      ${field('Water temp (°C)', textInput('d_waterTemp', d.waterTemp, '92', 'number', 'step="any" inputmode="decimal"'))}
     </div>`;
   $('#modalForm').onsubmit = (e) => { e.preventDefault(); saveSettingsForm(); };
   $('.modal-foot .primary').style.display = '';
