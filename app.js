@@ -284,7 +284,7 @@ function beanCard(b) {
         <div class="title">${esc(beanLabel(b))}</div>
         <div class="bean-rating">${starStr(overall, true)}</div>
       </div>
-      <div class="sub bean-line">${b.roastDate ? `Roasted ${esc(b.roastDate)} · ` : ''}${n} brew${n === 1 ? '' : 's'} ${status}</div>
+      <div class="sub">${n} brew${n === 1 ? '' : 's'} ${status}</div>
       <div class="meta">${meta.map((m) => `<span class="pill">${esc(m)}</span>`).join('')}</div>
       ${b.flavour ? `<div class="sub" style="margin-top:6px">${esc(b.flavour)}</div>` : ''}
     </div>`;
