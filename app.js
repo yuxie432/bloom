@@ -9,8 +9,11 @@ import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
 } from './sync.js?v=29';
 
-/* ---------- Tasting criteria (prompts under flavour notes) ---------- */
-const TASTE_CRITERIA = ['Aroma', 'Acidity', 'Sweetness', 'Body', 'Bitterness', 'Aftertaste'];
+/* Placeholder for a brew's flavour-notes box: the roaster's own notes for the
+ * selected bean, with a trailing "…" to invite the taster to add their own. */
+function flavourPlaceholder(bean) {
+  return bean && bean.flavour ? `${bean.flavour}...` : 'Blueberry, jasmine, clean finish...';
+}
 
 const ROAST_LEVELS = ['Very light', 'Light', 'Medium-light', 'Medium', 'Medium-dark', 'Dark'];
 const PROCESS_METHODS = [
@@ -281,8 +284,7 @@ function beanCard(b) {
         <div class="title">${esc(beanLabel(b))}</div>
         <div class="bean-rating">${starStr(overall, true)}</div>
       </div>
-      ${b.roastDate ? `<div class="sub bean-roast">Roasted ${esc(b.roastDate)}</div>` : ''}
-      <div class="sub">${n} brew${n === 1 ? '' : 's'} ${status}</div>
+      <div class="sub bean-line">${b.roastDate ? `Roasted ${esc(b.roastDate)} · ` : ''}${n} brew${n === 1 ? '' : 's'} ${status}</div>
       <div class="meta">${meta.map((m) => `<span class="pill">${esc(m)}</span>`).join('')}</div>
       ${b.flavour ? `<div class="sub" style="margin-top:6px">${esc(b.flavour)}</div>` : ''}
     </div>`;
@@ -629,11 +631,16 @@ function brewForm(rec = {}) {
 
     <div class="section-label">Impressions</div>
     ${field('Overall rating', ratingWidget(rec.rating || 0))}
-    ${field('Flavour notes', `<textarea name="flavorNotes" placeholder="Blueberry, jasmine, clean finish...">${esc(rec.flavorNotes || '')}</textarea>`, `Consider: ${TASTE_CRITERIA.join(', ')}.`)}
+    ${field('Flavour notes', `<textarea name="flavorNotes" placeholder="${esc(flavourPlaceholder(beans.find((b) => b.id === rec.beanId)))}">${esc(rec.flavorNotes || '')}</textarea>`)}
     ${field('Brew notes', `<textarea name="notes" placeholder="What to change next time...">${esc(rec.notes || '')}</textarea>`)}
   `;
   renderTechFields(cur.technique, rec.tech || {});
   $('select[name=technique]').addEventListener('change', (e) => renderTechFields(techFromDisplay(e.target.value), {}));
+  // Update the flavour-notes placeholder to match the chosen bean's roaster notes.
+  $('select[name=beanId]')?.addEventListener('change', (e) => {
+    const ta = $('textarea[name=flavorNotes]');
+    if (ta) ta.placeholder = flavourPlaceholder(beans.find((b) => b.id === e.target.value));
+  });
   $('#deleteBtn').hidden = !rec.id;
   $('.modal-foot .primary').style.display = '';
   openModal(rec.id ? 'Edit brew' : 'New brew');
