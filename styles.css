@@ -78,7 +78,7 @@ button.danger { background: var(--bad); color: #fff; }
 /* Rating = stars + number on one aligned line; number matches star size. */
 .rating-line { display: inline-flex; align-items: center; gap: 6px; line-height: 1; }
 .rating-line .stars, .rating-line .rval { font-size: 17px; }
-.rating-line.big .stars, .rating-line.big .rval { font-size: 22px; }
+.rating-line.big .stars, .rating-line.big .rval { font-size: 20px; }
 .rating-line .unrated { color: var(--muted); font-size: 14px; }
 .stars { color: var(--accent); white-space: nowrap; line-height: 1; }
 .stars .emptystar { color: var(--line); }
@@ -86,7 +86,7 @@ button.danger { background: var(--bad); color: #fff; }
 .stars .halfstar::before { content: '★'; position: absolute; left: 0; top: 0; width: 50%; height: 100%; overflow: hidden; color: var(--accent); }
 .rval { color: var(--muted); font-weight: 700; }
 /* Brew card: numeric score only (no stars) so the bean title gets full width. */
-.brew-score { flex-shrink: 0; font-size: 22px; font-weight: 700; color: var(--accent); line-height: 1; }
+.brew-score { flex-shrink: 0; font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; }
 .pill.strong { background: #e5efe6; color: var(--good); }
 .tag-done {
   display: inline-block; background: #eceae7; color: var(--muted);
@@ -196,10 +196,10 @@ textarea { resize: vertical; min-height: 70px; }
 .add-row { display: flex; gap: 8px; margin-top: 8px; }
 .add-row input { flex: 1; }
 
-/* Prominent bean rating — stars sit centred against the first line of the name */
-.bean-card .bean-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+/* Prominent bean rating — vertically centred against the bean name */
+.bean-card .bean-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .bean-card .title { font-size: 16px; line-height: 1.4; }
-.bean-card .bean-rating { flex-shrink: 0; font-size: 16px; display: flex; align-items: center; height: 1.4em; }
+.bean-card .bean-rating { flex-shrink: 0; display: flex; align-items: center; }
 
 /* Multi-select add rows */
 .add-row.mini { margin-top: 6px; }
