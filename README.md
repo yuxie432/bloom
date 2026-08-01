@@ -10,7 +10,8 @@ account required.
 - **Brews** — date, bean, grinder, grind, dose, water temp, device, filter paper,
   and a **technique template** (Single pour, Two-stage, Three-stage, Four-stage,
   Switch immersion, Equal pulse, Cold brew) that shows the right pour/time fields.
-  Six 0–5 tasting sliders plus a half-star rating and notes. Time fields
+  A half-star overall rating, flavour notes (with aroma / acidity / sweetness /
+  body / bitterness / aftertaste prompts) and brew notes. Time fields
   auto-insert the colon (type `230` → `2:30`).
 - **Beans** — roaster, country, region, producer, lot, one or more varietals
   (multi-select), roast level, process, mass, price (¥), flavour notes, and a
@@ -68,7 +69,7 @@ carries bean ratings and flavour notes across.
 - **Bean**: roaster, originCountry, originRegion, producer, lot, varietal[],
   roastLevel, process, mass, price, flavour, rating, roastDate, finished, notes
 - **Brew**: date, beanId, grinder, grind, dose, waterTemp, device, paper,
-  technique (+ template params), tasting scores (0–5), rating, flavorNotes, notes
+  technique (+ template params), rating, flavorNotes, notes
 
 ## Adding iPhone ↔ laptop sync later
 

@@ -9,15 +9,8 @@ import {
   startSync, signInGoogle, signOutUser, currentUser, resync, wipeRemote,
 } from './sync.js?v=29';
 
-/* ---------- Tasting axes (0–5 sliders) ---------- */
-const TASTE_AXES = [
-  ['aroma',      'Aroma',      'Floral, fruity, nutty, chocolatey, spicy — what hits your nose?'],
-  ['acidity',    'Acidity',    'Brightness. Citrusy & crisp vs. flat. 0 = none, 5 = vibrant'],
-  ['sweetness',  'Sweetness',  'Sugar-like roundness — caramel, honey, ripe fruit'],
-  ['body',       'Body',       'Weight/texture. Tea-like & light vs. syrupy & heavy'],
-  ['bitterness', 'Bitterness', 'Often over-extraction. 0 = none, 5 = harsh'],
-  ['aftertaste', 'Aftertaste', 'The finish — how long & pleasant it lingers'],
-];
+/* ---------- Tasting criteria (prompts under flavour notes) ---------- */
+const TASTE_CRITERIA = ['Aroma', 'Acidity', 'Sweetness', 'Body', 'Bitterness', 'Aftertaste'];
 
 const ROAST_LEVELS = ['Very light', 'Light', 'Medium-light', 'Medium', 'Medium-dark', 'Dark'];
 const PROCESS_METHODS = [
@@ -127,7 +120,9 @@ function money(n) { return n == null ? '' : '¥' + (Math.round(n * 100) / 100).t
 /* ---------- Derived ---------- */
 function beanBrewAvg(id) {
   const r = brews.filter((x) => x.beanId === id && x.rating);
-  return r.length ? r.reduce((s, x) => s + x.rating, 0) / r.length : null;
+  if (!r.length) return null;
+  const avg = r.reduce((s, x) => s + x.rating, 0) / r.length;
+  return Math.round(avg * 2) / 2;   // round to nearest half-star (e.g. 3.5, not 3.3)
 }
 function beanOverall(b) {
   return (b.rating != null && b.rating !== '') ? +b.rating : beanBrewAvg(b.id);
@@ -286,6 +281,7 @@ function beanCard(b) {
         <div class="title">${esc(beanLabel(b))}</div>
         <div class="bean-rating">${starStr(overall, true)}</div>
       </div>
+      ${b.roastDate ? `<div class="sub bean-roast">Roasted ${esc(b.roastDate)}</div>` : ''}
       <div class="sub">${n} brew${n === 1 ? '' : 's'} ${status}</div>
       <div class="meta">${meta.map((m) => `<span class="pill">${esc(m)}</span>`).join('')}</div>
       ${b.flavour ? `<div class="sub" style="margin-top:6px">${esc(b.flavour)}</div>` : ''}
@@ -608,11 +604,6 @@ function brewForm(rec = {}) {
         .map((b) => `<option value="${b.id}"${b.id === rec.beanId ? ' selected' : ''}>${esc(beanLabel(b))}</option>`).join('')}</select>`
     : `<div class="field-hint">Add a bean first (Beans tab).</div>`;
 
-  const sliders = TASTE_AXES.map(([key, lbl, hint]) => {
-    const v = rec[key] ?? 0;
-    return field(lbl, `<div class="slider-row"><input type="range" name="${key}" min="0" max="5" step="1" value="${v}" oninput="this.nextElementSibling.textContent=this.value" /><span class="val">${v}</span></div>`, hint);
-  }).join('');
-
   $('#modalForm').innerHTML = `
     ${returnBeanId ? '<button type="button" class="backbtn" data-backbean>‹ Back to bean</button>' : ''}
     ${field('Date', textInput('date', rec.date || todayISO(), '', 'date'))}
@@ -636,12 +627,9 @@ function brewForm(rec = {}) {
     ${field('Method', selectInput('technique', TECH_KEYS.map((k) => `${k} · ${TECHNIQUES[k].en}`), techDisplay(cur.technique), 'choose…'))}
     <div id="techFields"></div>
 
-    <div class="section-label">Tasting — 0 (none) to 5 (intense)</div>
-    ${sliders}
-
     <div class="section-label">Impressions</div>
     ${field('Overall rating', ratingWidget(rec.rating || 0))}
-    ${field('Flavour notes', `<textarea name="flavorNotes" placeholder="Blueberry, jasmine, clean finish...">${esc(rec.flavorNotes || '')}</textarea>`)}
+    ${field('Flavour notes', `<textarea name="flavorNotes" placeholder="Blueberry, jasmine, clean finish...">${esc(rec.flavorNotes || '')}</textarea>`, `Consider: ${TASTE_CRITERIA.join(', ')}.`)}
     ${field('Brew notes', `<textarea name="notes" placeholder="What to change next time...">${esc(rec.notes || '')}</textarea>`)}
   `;
   renderTechFields(cur.technique, rec.tech || {});
@@ -729,7 +717,6 @@ async function saveForm(e) {
       rating: num(fd.get('rating')) || 0, flavorNotes: fd.get('flavorNotes')?.trim() || '',
       notes: fd.get('notes')?.trim() || '',
     });
-    for (const [k] of TASTE_AXES) rec[k] = num(fd.get(k)) || 0;
   }
   await put(store, rec);
   await reload();
