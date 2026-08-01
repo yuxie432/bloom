@@ -78,7 +78,7 @@ button.danger { background: var(--bad); color: #fff; }
 /* Rating = stars + number on one aligned line; number matches star size. */
 .rating-line { display: inline-flex; align-items: center; gap: 6px; line-height: 1; }
 .rating-line .stars, .rating-line .rval { font-size: 17px; }
-.rating-line.big .stars, .rating-line.big .rval { font-size: 20px; }
+.rating-line.big .stars, .rating-line.big .rval { font-size: 22px; }
 .rating-line .unrated { color: var(--muted); font-size: 14px; }
 .stars { color: var(--accent); white-space: nowrap; line-height: 1; }
 .stars .emptystar { color: var(--line); }
@@ -196,10 +196,10 @@ textarea { resize: vertical; min-height: 70px; }
 .add-row { display: flex; gap: 8px; margin-top: 8px; }
 .add-row input { flex: 1; }
 
-/* Prominent bean rating — first line of the name sits level with the stars */
-.bean-card .bean-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.bean-card .bean-rating { flex-shrink: 0; }
-.bean-card .title { font-size: 16px; }
+/* Prominent bean rating — stars sit centred against the first line of the name */
+.bean-card .bean-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.bean-card .title { font-size: 16px; line-height: 1.4; }
+.bean-card .bean-rating { flex-shrink: 0; font-size: 16px; display: flex; align-items: center; height: 1.4em; }
 
 /* Multi-select add rows */
 .add-row.mini { margin-top: 6px; }
