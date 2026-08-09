@@ -221,29 +221,33 @@ function processPool() {
   return orderByProcess([...pool]);
 }
 
-/* ---------- Roaster dropdown ordering (recency) ----------
- * A bean's recency: unbrewed beans rank first (a freshly added bag), newest
- * addition (updatedAt) first; brewed beans follow, most-recent brew first. */
-function beanRecencyKey(b) {
-  const last = beanLastBrew(b.id);
-  return last ? { tier: 1, t: last } : { tier: 0, t: b.updatedAt || '' };
-}
-function cmpRecency(x, y) {
-  if (x.tier !== y.tier) return x.tier - y.tier;   // unbrewed (0) before brewed (1) before none (2)
-  if (x.t !== y.t) return x.t < y.t ? 1 : -1;       // newer first
-  return 0;
-}
-// Roasters ordered by their most-recent bean (see beanRecencyKey); roasters that
-// exist only in the settings list, with no bean yet, fall to the end.
-function roastersByRecency() {
-  const pool = new Set(settings.roasters || []);
+/* ---------- Roaster ordering (shared by the bean form AND the management page) ----------
+ * Frequency with recency layered on top, in three tiers so freshly added things
+ * surface to the top:
+ *   0  roaster added centrally but with no bean yet — newest addition first
+ *   1  roaster whose bean(s) have never been brewed (a fresh bag) — newest bean first
+ *   2  established roasters — most packs first (frequency), then most recent brew
+ * Alphabetical breaks any remaining tie. */
+function roastersOrdered() {
+  const roasterList = settings.roasters || [];
+  const pool = new Set(roasterList);
   beans.forEach((b) => { if (b.roaster) pool.add(String(b.roaster).trim()); });
-  const rankOf = (roaster) => {
-    const bs = beans.filter((b) => (b.roaster || '') === roaster);
-    if (!bs.length) return { tier: 2, t: '' };
-    return bs.map(beanRecencyKey).reduce((best, k) => (cmpRecency(k, best) < 0 ? k : best));
+  const info = (r) => {
+    const bs = beans.filter((b) => (b.roaster || '') === r);
+    const brewed = bs.some((b) => beanBrewCount(b.id) > 0);
+    const lastBrew = bs.reduce((m, b) => { const l = beanLastBrew(b.id); return l > m ? l : m; }, '');
+    const newestBean = bs.reduce((m, b) => { const u = b.updatedAt || ''; return u > m ? u : m; }, '');
+    const tier = bs.length === 0 ? 0 : (!brewed ? 1 : 2);
+    return { r, tier, packs: bs.length, lastBrew, newestBean, sidx: roasterList.indexOf(r) };
   };
-  return [...pool].sort((a, b) => cmpRecency(rankOf(a), rankOf(b)) || a.localeCompare(b));
+  return [...pool].map(info).sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    if (a.tier === 0) return b.sidx - a.sidx || a.r.localeCompare(b.r);                            // newest centrally-added first
+    if (a.tier === 1) return b.newestBean.localeCompare(a.newestBean) || a.r.localeCompare(b.r);   // newest bag first
+    if (b.packs !== a.packs) return b.packs - a.packs;                                             // frequency (packs) desc
+    if (a.lastBrew !== b.lastBrew) return a.lastBrew < b.lastBrew ? 1 : -1;                        // then most recent brew
+    return a.r.localeCompare(b.r);
+  }).map((x) => x.r);
 }
 
 // Devices ordered by how often they appear in brews (most used first).
@@ -592,7 +596,7 @@ function beanForm(rec = {}) {
 
   $('#modalForm').innerHTML = `
     <div class="grid2">
-      ${field('Roaster', selectInput('roaster', roastersByRecency(), rec.roaster || ''))}
+      ${field('Roaster', selectInput('roaster', roastersOrdered(), rec.roaster || ''))}
       ${field('Origin country', selectInput('originCountry', optionPoolRanked('countries', 'originCountry', false), rec.originCountry || ''))}
     </div>
     <div class="grid2">
@@ -814,6 +818,7 @@ function settingsForm() {
     // dropdowns do) — otherwise the page looks empty. Processes use their fixed
     // progression; equipment lists (grinders/devices/papers) are settings-only.
     const vals = kind === 'processes' ? processPool()
+      : kind === 'roasters' ? roastersOrdered()
       : (RANKED_LISTS[kind] ? optionPoolRanked(kind, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : (settings[kind] || []));
     return `
     <div class="section-label">${label}</div>
