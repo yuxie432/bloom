@@ -221,6 +221,45 @@ function processPool() {
   return orderByProcess([...pool]);
 }
 
+/* ---------- Roaster dropdown ordering (recency) ----------
+ * A bean's recency: unbrewed beans rank first (a freshly added bag), newest
+ * addition (updatedAt) first; brewed beans follow, most-recent brew first. */
+function beanRecencyKey(b) {
+  const last = beanLastBrew(b.id);
+  return last ? { tier: 1, t: last } : { tier: 0, t: b.updatedAt || '' };
+}
+function cmpRecency(x, y) {
+  if (x.tier !== y.tier) return x.tier - y.tier;   // unbrewed (0) before brewed (1) before none (2)
+  if (x.t !== y.t) return x.t < y.t ? 1 : -1;       // newer first
+  return 0;
+}
+// Roasters ordered by their most-recent bean (see beanRecencyKey); roasters that
+// exist only in the settings list, with no bean yet, fall to the end.
+function roastersByRecency() {
+  const pool = new Set(settings.roasters || []);
+  beans.forEach((b) => { if (b.roaster) pool.add(String(b.roaster).trim()); });
+  const rankOf = (roaster) => {
+    const bs = beans.filter((b) => (b.roaster || '') === roaster);
+    if (!bs.length) return { tier: 2, t: '' };
+    return bs.map(beanRecencyKey).reduce((best, k) => (cmpRecency(k, best) < 0 ? k : best));
+  };
+  return [...pool].sort((a, b) => cmpRecency(rankOf(a), rankOf(b)) || a.localeCompare(b));
+}
+
+// Devices ordered by how often they appear in brews (most used first).
+function devicesByUsage() {
+  const counts = new Map();
+  brews.forEach((x) => { if (x.device) counts.set(x.device, (counts.get(x.device) || 0) + 1); });
+  return [...(settings.devices || [])].sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
+}
+
+// Filter papers in a fixed preferred order; unknowns fall to the end.
+const PAPER_ORDER = ['Hario', 'Mola', 'Abaca', 'Origami Wave', 'Origami Cone'];
+function papersOrdered() {
+  const idx = (v) => { const i = PAPER_ORDER.indexOf(v); return i === -1 ? PAPER_ORDER.length : i; };
+  return [...(settings.papers || [])].sort((a, b) => { const d = idx(a) - idx(b); return d !== 0 ? d : a.localeCompare(b); });
+}
+
 /* =========================================================================
  * RENDER — brews (paginated)
  * ========================================================================= */
@@ -553,7 +592,7 @@ function beanForm(rec = {}) {
 
   $('#modalForm').innerHTML = `
     <div class="grid2">
-      ${field('Roaster', selectInput('roaster', optionPoolRanked('roasters', 'roaster', false), rec.roaster || ''))}
+      ${field('Roaster', selectInput('roaster', roastersByRecency(), rec.roaster || ''))}
       ${field('Origin country', selectInput('originCountry', optionPoolRanked('countries', 'originCountry', false), rec.originCountry || ''))}
     </div>
     <div class="grid2">
@@ -621,8 +660,8 @@ function brewForm(rec = {}) {
       ${field('Water temp (°C)', textInput('waterTemp', cur.waterTemp, '92', 'number', 'step="any" inputmode="decimal"'))}
     </div>
     <div class="grid2">
-      ${field('Device', selectInput('device', settings.devices, cur.device))}
-      ${field('Filter paper', selectInput('paper', settings.papers, cur.paper))}
+      ${field('Device', selectInput('device', devicesByUsage(), cur.device))}
+      ${field('Filter paper', selectInput('paper', papersOrdered(), cur.paper))}
     </div>
 
     <div class="section-label">Technique</div>
@@ -770,13 +809,16 @@ function openMenu() {
 function settingsForm() {
   const d = settings.defaults || {};
   const listEditor = (kind, label) => {
-    const raw = settings[kind] || [];
-    const vals = kind === 'processes' ? orderByProcess(raw)
-      : (RANKED_LISTS[kind] ? rankedSort(raw, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : raw);
+    // Roasters/countries/varietals are largely inferred from the beans, so pool
+    // the settings list together with the values actually used (like the record
+    // dropdowns do) — otherwise the page looks empty. Processes use their fixed
+    // progression; equipment lists (grinders/devices/papers) are settings-only.
+    const vals = kind === 'processes' ? processPool()
+      : (RANKED_LISTS[kind] ? optionPoolRanked(kind, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : (settings[kind] || []));
     return `
     <div class="section-label">${label}</div>
     <div class="chips" data-list="${kind}">${vals.map((v) => `<span class="chip">${esc(v)}<button type="button" data-del-chip="${esc(v)}" data-kind="${kind}">✕</button></span>`).join('')}</div>
-    <div class="add-row"><input type="text" data-add-input="${kind}" placeholder="Add ${label.toLowerCase().replace(/s$/, '')}..." /><button type="button" class="ghost" data-add-btn="${kind}">Add</button></div>`;
+    <div class="add-row"><input type="text" data-add-input="${kind}" /><button type="button" class="ghost" data-add-btn="${kind}">Add</button></div>`;
   };
   $('#modalForm').innerHTML = `
     ${listEditor('grinders', 'Grinders')}
