@@ -273,7 +273,9 @@ function renderBrews() {
     el.innerHTML = emptyState('No brews yet', 'Tap “+ New brew” after your next cup.');
     return;
   }
-  const sorted = [...brews].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const sorted = [...brews].sort((a, b) =>
+    (b.date || '').localeCompare(a.date || '') ||
+    (b.updatedAt || '').localeCompare(a.updatedAt || ''));   // same day → newest modified first
   const pages = Math.max(1, Math.ceil(sorted.length / BREW_PAGE));
   brewsPage = Math.min(brewsPage, pages - 1);
   const slice = sorted.slice(brewsPage * BREW_PAGE, (brewsPage + 1) * BREW_PAGE);
@@ -363,7 +365,9 @@ function beanDetail(b) {
   detailBeanId = b.id;
   const overall = beanOverall(b);
   const c = beanConsumption(b);
-  const bb = brews.filter((x) => x.beanId === b.id).sort((a, b2) => (b2.date || '').localeCompare(a.date || ''));
+  const bb = brews.filter((x) => x.beanId === b.id).sort((a, b2) =>
+    (b2.date || '').localeCompare(a.date || '') ||
+    (b2.updatedAt || '').localeCompare(a.updatedAt || ''));   // same day → newest modified first
   const info = [
     ['Origin', [b.originCountry, b.originRegion].filter(Boolean).join(' · ')],
     ['Producer', b.producer], ['Lot', b.lot],
