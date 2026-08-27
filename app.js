@@ -221,33 +221,40 @@ function processPool() {
   return orderByProcess([...pool]);
 }
 
-/* ---------- Roaster ordering (shared by the bean form AND the management page) ----------
+/* ---------- Pick-list ordering (shared by the bean form AND the management page) ----------
  * Frequency with recency layered on top, in three tiers so freshly added things
- * surface to the top:
- *   0  roaster added centrally but with no bean yet — newest addition first
- *   1  roaster whose bean(s) have never been brewed (a fresh bag) — newest bean first
- *   2  established roasters — most packs first (frequency), then most recent brew
+ * surface to the top. Works for any bean pick-list — roaster, country, varietal
+ * (pass isArray=true for varietal, which is a multi-value field):
+ *   0  value added centrally but with no bean yet — newest addition first
+ *   1  value on bean(s) that have never been brewed (a fresh bag) — newest bean first
+ *   2  established values — most packs first (frequency), then most recent brew
  * Alphabetical breaks any remaining tie. */
-function roastersOrdered() {
-  const roasterList = settings.roasters || [];
-  const pool = new Set(roasterList);
-  beans.forEach((b) => { if (b.roaster) pool.add(String(b.roaster).trim()); });
-  const info = (r) => {
-    const bs = beans.filter((b) => (b.roaster || '') === r);
+function valuesOrdered(settingsKey, field, isArray) {
+  const list = settings[settingsKey] || [];
+  const pool = new Set(list);
+  beans.forEach((b) => {
+    const raw = b[field];
+    if (!raw) return;
+    if (isArray) varList(raw).forEach((x) => x && pool.add(x));
+    else pool.add(String(raw).trim());
+  });
+  const matches = (b, v) => (isArray ? varList(b[field]).includes(v) : String(b[field] || '').trim() === v);
+  const info = (v) => {
+    const bs = beans.filter((b) => matches(b, v));
     const brewed = bs.some((b) => beanBrewCount(b.id) > 0);
     const lastBrew = bs.reduce((m, b) => { const l = beanLastBrew(b.id); return l > m ? l : m; }, '');
     const newestBean = bs.reduce((m, b) => { const u = b.updatedAt || ''; return u > m ? u : m; }, '');
     const tier = bs.length === 0 ? 0 : (!brewed ? 1 : 2);
-    return { r, tier, packs: bs.length, lastBrew, newestBean, sidx: roasterList.indexOf(r) };
+    return { v, tier, packs: bs.length, lastBrew, newestBean, sidx: list.indexOf(v) };
   };
   return [...pool].map(info).sort((a, b) => {
     if (a.tier !== b.tier) return a.tier - b.tier;
-    if (a.tier === 0) return b.sidx - a.sidx || a.r.localeCompare(b.r);                            // newest centrally-added first
-    if (a.tier === 1) return b.newestBean.localeCompare(a.newestBean) || a.r.localeCompare(b.r);   // newest bag first
+    if (a.tier === 0) return b.sidx - a.sidx || a.v.localeCompare(b.v);                            // newest centrally-added first
+    if (a.tier === 1) return b.newestBean.localeCompare(a.newestBean) || a.v.localeCompare(b.v);   // newest bag first
     if (b.packs !== a.packs) return b.packs - a.packs;                                             // frequency (packs) desc
     if (a.lastBrew !== b.lastBrew) return a.lastBrew < b.lastBrew ? 1 : -1;                        // then most recent brew
-    return a.r.localeCompare(b.r);
-  }).map((x) => x.r);
+    return a.v.localeCompare(b.v);
+  }).map((x) => x.v);
 }
 
 // Devices ordered by how often they appear in brews (most used first).
@@ -600,8 +607,8 @@ function beanForm(rec = {}) {
 
   $('#modalForm').innerHTML = `
     <div class="grid2">
-      ${field('Roaster', selectInput('roaster', roastersOrdered(), rec.roaster || ''))}
-      ${field('Origin country', selectInput('originCountry', optionPoolRanked('countries', 'originCountry', false), rec.originCountry || ''))}
+      ${field('Roaster', selectInput('roaster', valuesOrdered('roasters', 'roaster', false), rec.roaster || ''))}
+      ${field('Origin country', selectInput('originCountry', valuesOrdered('countries', 'originCountry', false), rec.originCountry || ''))}
     </div>
     <div class="grid2">
       ${field('Region / area', textInput('originRegion', rec.originRegion, 'e.g. Sidama Bensa'))}
@@ -611,7 +618,7 @@ function beanForm(rec = {}) {
 
     <div class="section-label">Varietals</div>
     <div class="msel-chips" id="vchips">${selectedVar.map(varChip).join('')}</div>
-    <div class="add-row"><select data-vadd><option value="">+ add varietal…</option>${optionPoolRanked('varietals', 'varietal', true).filter((v) => !selectedVar.includes(v)).map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>
+    <div class="add-row"><select data-vadd><option value="">+ add varietal…</option>${valuesOrdered('varietals', 'varietal', true).filter((v) => !selectedVar.includes(v)).map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>
     <div class="field-hint">Add or rename options centrally in ⋮ → Equipment &amp; options.</div>
 
     <div class="grid2">
@@ -822,8 +829,7 @@ function settingsForm() {
     // dropdowns do) — otherwise the page looks empty. Processes use their fixed
     // progression; equipment lists (grinders/devices/papers) are settings-only.
     const vals = kind === 'processes' ? processPool()
-      : kind === 'roasters' ? roastersOrdered()
-      : (RANKED_LISTS[kind] ? optionPoolRanked(kind, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : (settings[kind] || []));
+      : (RANKED_LISTS[kind] ? valuesOrdered(kind, RANKED_LISTS[kind][0], RANKED_LISTS[kind][1]) : (settings[kind] || []));
     return `
     <div class="section-label">${label}</div>
     <div class="chips" data-list="${kind}">${vals.map((v) => `<span class="chip">${esc(v)}<button type="button" data-del-chip="${esc(v)}" data-kind="${kind}">✕</button></span>`).join('')}</div>
